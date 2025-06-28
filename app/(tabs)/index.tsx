@@ -68,9 +68,8 @@ export default function HomeScreen() {
   }, [initializeUser, fetchSubscription]);
 
   const handleRestaurantPress = (id: string) => {
-    // Navigate to restaurant details (placeholder for now)
-    console.log(`Restaurant ${id} pressed`);
-    // router.push(`/restaurant/${id}`);
+    // Navigate to restaurant details
+    router.push(`/restaurant/${id}`);
   };
 
   const handleToggleFavorite = (id: string) => {

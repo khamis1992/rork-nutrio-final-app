@@ -31,12 +31,21 @@ export const RestaurantCard = ({
   };
 
   return (
-    <Pressable style={styles.container} onPress={onPress}>
+    <Pressable 
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.pressed
+      ]} 
+      onPress={onPress}
+    >
       <View style={styles.imageContainer}>
         <Image source={{ uri: restaurant.image }} style={styles.image} />
         <Pressable 
           style={styles.favoriteButton} 
-          onPress={onToggleFavorite}
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleFavorite?.();
+          }}
         >
           <Heart 
             size={18} 
@@ -88,6 +97,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: theme.spacing.md,
     ...theme.shadows.md,
+  },
+  pressed: {
+    opacity: 0.95,
+    transform: [{ scale: 0.98 }],
   },
   imageContainer: {
     position: 'relative',
