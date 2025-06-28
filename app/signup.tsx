@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
+import { useUserStore } from '@/store/userStore';
 import { Button } from '@/components/Button';
 import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { signup, isLoading } = useUserStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -25,22 +26,26 @@ export default function SignupScreen() {
       return;
     }
 
-    setIsLoading(true);
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await signup(email, password, name);
       Alert.alert(
         'Account Created',
-        'Your account has been created successfully',
+        'Please check your email to verify your account',
         [
           {
-            text: 'Login',
+            text: 'OK',
             onPress: () => router.replace('/login'),
           },
         ]
       );
-    }, 1500);
+    } catch (error: any) {
+      Alert.alert('Signup Failed', error.message || 'Failed to create account');
+    }
   };
 
   return (

@@ -1,13 +1,25 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { plans, Plan, mockSubscription, SubscriptionStatus } from '@/mocks/plans';
+import { plans, Plan } from '@/mocks/plans';
+import { supabase } from '@/lib/supabase';
+import { useUserStore } from './userStore';
+
+export interface SubscriptionStatus {
+  active: boolean;
+  plan: Plan | null;
+  startDate: string | null;
+  endDate: string | null;
+  gymAccess: boolean;
+  mealsRemaining: number;
+}
 
 interface SubscriptionState {
   plans: Plan[];
   subscription: SubscriptionStatus;
   isLoading: boolean;
   fetchPlans: () => Promise<void>;
+  fetchSubscription: () => Promise<void>;
   subscribe: (planId: string, withGymAccess: boolean) => Promise<void>;
   cancelSubscription: () => Promise<void>;
 }
@@ -25,35 +37,81 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         mealsRemaining: 0,
       },
       isLoading: false,
+
       fetchPlans: async () => {
         set({ isLoading: true });
         try {
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          
-          // For demo purposes, we'll use mock data
-          set({ plans, subscription: mockSubscription });
+          // For now, use mock data for plans
+          // In a real app, you'd fetch from Supabase
+          set({ plans });
+          await get().fetchSubscription();
         } catch (error) {
           console.error('Error fetching plans:', error);
         } finally {
           set({ isLoading: false });
         }
       },
+
+      fetchSubscription: async () => {
+        const { supabaseUser } = useUserStore.getState();
+        if (!supabaseUser) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', supabaseUser.id)
+            .eq('active', true)
+            .single();
+
+          if (error && error.code !== 'PGRST116') {
+            throw error;
+          }
+
+          if (data) {
+            const plan = get().plans.find(p => p.id === data.plan_id);
+            set({
+              subscription: {
+                active: data.active,
+                plan: plan || null,
+                startDate: data.start_date,
+                endDate: data.end_date,
+                gymAccess: data.gym_access,
+                mealsRemaining: data.meals_remaining,
+              },
+            });
+          } else {
+            set({
+              subscription: {
+                active: false,
+                plan: null,
+                startDate: null,
+                endDate: null,
+                gymAccess: false,
+                mealsRemaining: 0,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching subscription:', error);
+        }
+      },
+
       subscribe: async (planId, withGymAccess) => {
+        const { supabaseUser } = useUserStore.getState();
+        if (!supabaseUser) throw new Error('User not authenticated');
+
         set({ isLoading: true });
         try {
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          
           const selectedPlan = get().plans.find((plan) => plan.id === planId);
           if (!selectedPlan) {
             throw new Error('Plan not found');
           }
-          
+
           // Calculate dates based on plan duration
           const startDate = new Date();
           const endDate = new Date();
-          
+
           switch (selectedPlan.duration) {
             case 'daily':
               endDate.setDate(endDate.getDate() + 1);
@@ -65,18 +123,34 @@ export const useSubscriptionStore = create<SubscriptionState>()(
               endDate.setMonth(endDate.getMonth() + 1);
               break;
           }
-          
-          set({
-            subscription: {
+
+          const mealsRemaining = selectedPlan.duration === 'daily' ? 3 : 
+                                selectedPlan.duration === 'weekly' ? 21 : 90;
+
+          // Cancel any existing active subscription
+          await supabase
+            .from('subscriptions')
+            .update({ active: false })
+            .eq('user_id', supabaseUser.id)
+            .eq('active', true);
+
+          // Create new subscription
+          const { error } = await supabase
+            .from('subscriptions')
+            .insert({
+              user_id: supabaseUser.id,
+              plan_id: selectedPlan.id,
+              plan_name: selectedPlan.name,
+              start_date: startDate.toISOString().split('T')[0],
+              end_date: endDate.toISOString().split('T')[0],
+              gym_access: withGymAccess,
+              meals_remaining: mealsRemaining,
               active: true,
-              plan: selectedPlan,
-              startDate: startDate.toISOString().split('T')[0],
-              endDate: endDate.toISOString().split('T')[0],
-              gymAccess: withGymAccess,
-              mealsRemaining: selectedPlan.duration === 'daily' ? 3 : 
-                              selectedPlan.duration === 'weekly' ? 21 : 90,
-            },
-          });
+            });
+
+          if (error) throw error;
+
+          await get().fetchSubscription();
         } catch (error) {
           console.error('Error subscribing:', error);
           throw error;
@@ -84,12 +158,21 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           set({ isLoading: false });
         }
       },
+
       cancelSubscription: async () => {
+        const { supabaseUser } = useUserStore.getState();
+        if (!supabaseUser) throw new Error('User not authenticated');
+
         set({ isLoading: true });
         try {
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          
+          const { error } = await supabase
+            .from('subscriptions')
+            .update({ active: false })
+            .eq('user_id', supabaseUser.id)
+            .eq('active', true);
+
+          if (error) throw error;
+
           set({
             subscription: {
               active: false,
@@ -111,6 +194,9 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     {
       name: 'nutrio-subscription-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        plans: state.plans,
+      }),
     }
   )
 );

@@ -9,8 +9,8 @@ import { Eye, EyeOff } from 'lucide-react-native';
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading } = useUserStore();
-  const [email, setEmail] = useState('demo@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
@@ -22,8 +22,8 @@ export default function LoginScreen() {
     try {
       await login(email, password);
       router.replace('/');
-    } catch (error) {
-      Alert.alert('Login Failed', 'Invalid email or password');
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'Invalid email or password');
     }
   };
 
@@ -114,10 +114,6 @@ export default function LoginScreen() {
             <Text style={styles.signupText}>Sign Up</Text>
           </Pressable>
         </View>
-
-        <Text style={styles.demoText}>
-          Demo credentials: demo@example.com / password
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -255,11 +251,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.md,
     fontWeight: theme.typography.fontWeights.medium,
     color: theme.colors.primary,
-  },
-  demoText: {
-    textAlign: 'center',
-    marginTop: theme.spacing.md,
-    fontSize: theme.typography.fontSizes.sm,
-    color: theme.colors.textLight,
   },
 });

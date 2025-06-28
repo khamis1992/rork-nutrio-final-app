@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useMealsStore } from '@/store/mealsStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useUserStore } from '@/store/userStore';
 import { Button } from '@/components/Button';
 import { NutritionSummary } from '@/components/NutritionSummary';
 
@@ -12,6 +13,7 @@ export default function MealDetailScreen() {
   const router = useRouter();
   const { getMealById, addMealToPlan, logMealAsEaten } = useMealsStore();
   const { subscription } = useSubscriptionStore();
+  const { isAuthenticated } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const meal = getMealById(id);
@@ -30,6 +32,24 @@ export default function MealDetailScreen() {
   }
 
   const handleAddToPlan = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Login Required",
+        "You need to log in to add meals to your plan",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          { 
+            text: "Login", 
+            onPress: () => router.push('/login')
+          }
+        ]
+      );
+      return;
+    }
+
     if (!subscription.active) {
       Alert.alert(
         "Subscription Required",
@@ -73,43 +93,66 @@ export default function MealDetailScreen() {
     );
   };
 
-  const selectDate = (mealTime: string) => {
-    // For simplicity, we'll just add it to today's plan
-    // In a real app, you'd show a date picker
-    const today = new Date().toISOString().split('T')[0];
-    
-    addMealToPlan(meal.id, today, mealTime);
-    
-    Alert.alert(
-      "Success",
-      `${meal.name} added to your plan for ${mealTime}`,
-      [
-        {
-          text: "View Plan",
-          onPress: () => router.push('/my-plan')
-        },
-        {
-          text: "OK",
-          style: "cancel"
-        }
-      ]
-    );
+  const selectDate = async (mealTime: string) => {
+    try {
+      // For simplicity, we'll just add it to today's plan
+      // In a real app, you'd show a date picker
+      const today = new Date().toISOString().split('T')[0];
+      
+      await addMealToPlan(meal.id, today, mealTime);
+      
+      Alert.alert(
+        "Success",
+        `${meal.name} added to your plan for ${mealTime}`,
+        [
+          {
+            text: "View Plan",
+            onPress: () => router.push('/my-plan')
+          },
+          {
+            text: "OK",
+            style: "cancel"
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert("Error", "Failed to add meal to plan");
+    }
   };
 
-  const handleLogAsEaten = () => {
+  const handleLogAsEaten = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Login Required",
+        "You need to log in to track your nutrition",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          { 
+            text: "Login", 
+            onPress: () => router.push('/login')
+          }
+        ]
+      );
+      return;
+    }
+
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      logMealAsEaten(meal.id);
-      setIsLoading(false);
-      
+    try {
+      await logMealAsEaten(meal.id);
       Alert.alert(
         "Meal Logged",
         "This meal has been added to your nutrition log",
         [{ text: "OK" }]
       );
-    }, 1000);
+    } catch (error) {
+      Alert.alert("Error", "Failed to log meal");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
