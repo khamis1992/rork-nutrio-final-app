@@ -1,15 +1,20 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
-import { gyms } from '@/mocks/gyms';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useGymsStore } from '@/store/gymsStore';
 import { GymCard } from '@/components/GymCard';
 import { Button } from '@/components/Button';
 
 export default function GymsScreen() {
   const router = useRouter();
   const { subscription } = useSubscriptionStore();
+  const { gyms, isLoading, error, fetchGyms } = useGymsStore();
+
+  useEffect(() => {
+    fetchGyms();
+  }, []);
 
   const handleGymPress = (gymId: string) => {
     if (!subscription.active || !subscription.gymAccess) {
@@ -54,6 +59,29 @@ export default function GymsScreen() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Loading gyms...</Text>
+      </View>
+    );
+  }
+
+  if (error && gyms.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Unable to Load Gyms</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <Button
+          title="Try Again"
+          onPress={fetchGyms}
+          style={styles.retryButton}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -86,11 +114,29 @@ export default function GymsScreen() {
         {gyms.map((gym) => (
           <GymCard
             key={gym.id}
-            gym={gym}
+            gym={{
+              id: gym.id,
+              name: gym.name,
+              image: gym.image_url,
+              logo: gym.logo_url,
+              address: gym.address,
+              distance: gym.distance,
+              rating: gym.rating,
+              amenities: gym.amenities,
+            }}
             isAccessible={subscription.gymAccess}
             onPress={() => handleGymPress(gym.id)}
           />
         ))}
+        
+        {gyms.length === 0 && !isLoading && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>No Gyms Available</Text>
+            <Text style={styles.emptyText}>
+              Check back later for partner gym locations
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -160,5 +206,53 @@ const styles = StyleSheet.create({
   },
   subscribeButton: {
     minWidth: 200,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+  },
+  loadingText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    marginTop: theme.spacing.md,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+  },
+  errorTitle: {
+    fontSize: theme.typography.fontSizes.xl,
+    fontWeight: theme.typography.fontWeights.bold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  errorText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  retryButton: {
+    minWidth: 120,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: theme.typography.fontSizes.lg,
+    fontWeight: theme.typography.fontWeights.semibold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  emptyText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    textAlign: 'center',
   },
 });

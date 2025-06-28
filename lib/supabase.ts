@@ -239,6 +239,43 @@ export interface Database {
           updated_at?: string;
         };
       };
+      gyms: {
+        Row: {
+          id: string;
+          name: string;
+          image_url: string;
+          logo_url: string;
+          address: string;
+          distance: string;
+          rating: number;
+          amenities: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          image_url: string;
+          logo_url: string;
+          address: string;
+          distance: string;
+          rating?: number;
+          amenities?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          image_url?: string;
+          logo_url?: string;
+          address?: string;
+          distance?: string;
+          rating?: number;
+          amenities?: string[];
+          updated_at?: string;
+        };
+      };
     };
   };
 }
