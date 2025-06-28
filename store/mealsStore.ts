@@ -82,7 +82,7 @@ export const useMealsStore = create<MealsState>()(
             price: Number(meal.price) || 0,
           }));
 
-          set({ meals: transformedMeals });
+          set({ meals: transformedMeals, error: null });
         } catch (error: any) {
           console.error('Error fetching meals:', error);
           set({ error: error.message || 'Failed to fetch meals' });
@@ -92,12 +92,13 @@ export const useMealsStore = create<MealsState>()(
       },
 
       fetchPlannedMeals: async () => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) {
-          set({ plannedMeals: [] });
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        if (!isAuthenticated || !supabaseUser) {
+          set({ plannedMeals: [], error: null });
           return;
         }
 
+        set({ error: null });
         try {
           // Get current date to filter out past meals
           const today = new Date().toISOString().split('T')[0];
@@ -142,10 +143,13 @@ export const useMealsStore = create<MealsState>()(
           // Sort by date
           groupedMeals.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-          set({ plannedMeals: groupedMeals });
-        } catch (error) {
+          set({ plannedMeals: groupedMeals, error: null });
+        } catch (error: any) {
           console.error('Error fetching planned meals:', error);
-          set({ plannedMeals: [] });
+          set({ 
+            plannedMeals: [], 
+            error: error.message || 'Failed to fetch planned meals' 
+          });
         }
       },
 
@@ -158,8 +162,8 @@ export const useMealsStore = create<MealsState>()(
       },
 
       addMealToPlan: async (mealId, date, mealTime) => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) throw new Error('User not authenticated');
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
         try {
           // Remove existing meal for this date and time
@@ -191,8 +195,8 @@ export const useMealsStore = create<MealsState>()(
       },
 
       removeMealFromPlan: async (date, mealTime) => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) throw new Error('User not authenticated');
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
         try {
           const { error } = await supabase

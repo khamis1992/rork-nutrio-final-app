@@ -18,6 +18,7 @@ interface SubscriptionState {
   plans: Plan[];
   subscription: SubscriptionStatus;
   isLoading: boolean;
+  error: string | null;
   fetchPlans: () => Promise<void>;
   fetchSubscription: () => Promise<void>;
   subscribe: (planId: string, withGymAccess: boolean) => Promise<void>;
@@ -37,16 +38,15 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         mealsRemaining: 0,
       },
       isLoading: false,
+      error: null,
 
       fetchPlans: async () => {
-        set({ isLoading: true });
         try {
           // Use mock data for plans since they're static
-          set({ plans });
-        } catch (error) {
+          set({ plans, error: null });
+        } catch (error: any) {
           console.error('Error fetching plans:', error);
-        } finally {
-          set({ isLoading: false });
+          set({ error: error.message || 'Failed to fetch plans' });
         }
       },
 
@@ -55,12 +55,18 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         
         if (!isAuthenticated || !supabaseUser) {
           // Use mock subscription for demo when not authenticated
-          set({ subscription: mockSubscription });
+          set({ subscription: mockSubscription, error: null });
           return;
         }
 
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
+          // Ensure plans are loaded
+          const currentPlans = get().plans;
+          if (currentPlans.length === 0) {
+            await get().fetchPlans();
+          }
+
           const { data, error } = await supabase
             .from('subscriptions')
             .select('*')
@@ -75,7 +81,9 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           }
 
           if (data) {
-            const plan = get().plans.find(p => p.id === data.plan_id) || null;
+            // Find the plan by ID from our loaded plans
+            const currentPlans = get().plans;
+            const plan = currentPlans.find(p => p.id === data.plan_id) || null;
             
             // Format dates for display
             const startDate = data.start_date ? new Date(data.start_date).toLocaleDateString('en-US', {
@@ -97,6 +105,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 gymAccess: data.gym_access,
                 mealsRemaining: data.meals_remaining,
               },
+              error: null,
             });
           } else {
             set({
@@ -108,10 +117,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 gymAccess: false,
                 mealsRemaining: 0,
               },
+              error: null,
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching subscription:', error);
+          set({ error: error.message || 'Failed to fetch subscription' });
           // Fall back to mock subscription on error for demo purposes
           set({ subscription: mockSubscription });
         } finally {
@@ -123,7 +134,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         const { supabaseUser, isAuthenticated } = useUserStore.getState();
         if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const selectedPlan = get().plans.find((plan) => plan.id === planId);
           if (!selectedPlan) {
@@ -177,6 +188,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           await get().fetchSubscription();
         } catch (error: any) {
           console.error('Error subscribing:', error);
+          set({ error: error.message || 'Failed to create subscription' });
           throw new Error(error.message || 'Failed to create subscription');
         } finally {
           set({ isLoading: false });
@@ -187,7 +199,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         const { supabaseUser, isAuthenticated } = useUserStore.getState();
         if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const { error } = await supabase
             .from('subscriptions')
@@ -206,9 +218,11 @@ export const useSubscriptionStore = create<SubscriptionState>()(
               gymAccess: false,
               mealsRemaining: 0,
             },
+            error: null,
           });
         } catch (error: any) {
           console.error('Error canceling subscription:', error);
+          set({ error: error.message || 'Failed to cancel subscription' });
           throw new Error(error.message || 'Failed to cancel subscription');
         } finally {
           set({ isLoading: false });

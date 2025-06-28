@@ -30,6 +30,7 @@ interface UserState {
   supabaseUser: SupabaseUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  error: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -47,28 +48,41 @@ export const useUserStore = create<UserState>()(
       supabaseUser: null,
       isAuthenticated: false,
       isLoading: false,
+      error: null,
 
       initializeUser: async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
+        set({ isLoading: true, error: null });
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session?.user) {
+            set({ 
+              supabaseUser: session.user, 
+              isAuthenticated: true 
+            });
+            await get().fetchUserProfile();
+            await get().fetchNutritionProgress();
+          } else {
+            // Use mock user for demo purposes when not authenticated
+            set({ 
+              user: mockUser,
+              isAuthenticated: false 
+            });
+          }
+        } catch (error: any) {
+          console.error('Error initializing user:', error);
           set({ 
-            supabaseUser: session.user, 
-            isAuthenticated: true 
-          });
-          await get().fetchUserProfile();
-          await get().fetchNutritionProgress();
-        } else {
-          // Use mock user for demo purposes when not authenticated
-          set({ 
+            error: error.message || 'Failed to initialize user',
             user: mockUser,
             isAuthenticated: false 
           });
+        } finally {
+          set({ isLoading: false });
         }
       },
 
       login: async (email, password) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -83,6 +97,7 @@ export const useUserStore = create<UserState>()(
             await get().fetchNutritionProgress();
           }
         } catch (error: any) {
+          set({ error: error.message || 'Login failed' });
           throw new Error(error.message || 'Login failed');
         } finally {
           set({ isLoading: false });
@@ -90,7 +105,7 @@ export const useUserStore = create<UserState>()(
       },
 
       signup: async (email, password, name) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -119,6 +134,7 @@ export const useUserStore = create<UserState>()(
             await get().fetchUserProfile();
           }
         } catch (error: any) {
+          set({ error: error.message || 'Signup failed' });
           throw new Error(error.message || 'Signup failed');
         } finally {
           set({ isLoading: false });
@@ -126,6 +142,7 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: async () => {
+        set({ isLoading: true, error: null });
         try {
           await supabase.auth.signOut();
           set({ 
@@ -133,8 +150,11 @@ export const useUserStore = create<UserState>()(
             supabaseUser: null, 
             isAuthenticated: false 
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Logout error:', error);
+          set({ error: error.message || 'Logout failed' });
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -142,6 +162,7 @@ export const useUserStore = create<UserState>()(
         const { supabaseUser } = get();
         if (!supabaseUser) return;
 
+        set({ isLoading: true, error: null });
         try {
           const updateData: any = {};
           
@@ -161,9 +182,12 @@ export const useUserStore = create<UserState>()(
           if (error) throw error;
 
           await get().fetchUserProfile();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Update user error:', error);
+          set({ error: error.message || 'Failed to update user' });
           throw error;
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -195,10 +219,11 @@ export const useUserStore = create<UserState>()(
               progress: get().user?.progress || [],
             };
 
-            set({ user });
+            set({ user, error: null });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Fetch user profile error:', error);
+          set({ error: error.message || 'Failed to fetch user profile' });
         }
       },
 
@@ -226,11 +251,13 @@ export const useUserStore = create<UserState>()(
             }));
 
             set(state => ({
-              user: state.user ? { ...state.user, progress } : null
+              user: state.user ? { ...state.user, progress } : null,
+              error: null,
             }));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Fetch nutrition progress error:', error);
+          set({ error: error.message || 'Failed to fetch nutrition progress' });
         }
       },
 
@@ -299,12 +326,13 @@ export const useUserStore = create<UserState>()(
 
 // Initialize auth state
 supabase.auth.onAuthStateChange((event, session) => {
-  const { fetchUserProfile, fetchNutritionProgress, initializeUser } = useUserStore.getState();
+  const { fetchUserProfile, fetchNutritionProgress } = useUserStore.getState();
   
   if (event === 'SIGNED_IN' && session?.user) {
     useUserStore.setState({ 
       supabaseUser: session.user, 
-      isAuthenticated: true 
+      isAuthenticated: true,
+      error: null,
     });
     fetchUserProfile();
     fetchNutritionProgress();
@@ -312,7 +340,8 @@ supabase.auth.onAuthStateChange((event, session) => {
     useUserStore.setState({ 
       user: mockUser, // Fall back to mock user
       supabaseUser: null, 
-      isAuthenticated: false 
+      isAuthenticated: false,
+      error: null,
     });
   }
 });
