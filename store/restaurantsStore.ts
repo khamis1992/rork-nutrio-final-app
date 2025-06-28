@@ -39,8 +39,10 @@ export const useRestaurantsStore = create<RestaurantsState>((set, get) => ({
       if (error) throw error;
 
       const { favoriteRestaurants } = get();
+      // Ensure rating is never null by providing a default value
       const restaurantsWithFavorites = (data || []).map(restaurant => ({
         ...restaurant,
+        rating: restaurant.rating ?? 0, // Default to 0 if rating is null
         isFavorite: favoriteRestaurants.has(restaurant.id),
       }));
 

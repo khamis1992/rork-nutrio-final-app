@@ -45,7 +45,13 @@ export default function RestaurantDetailsScreen() {
           throw new Error(restaurantError.message);
         }
 
-        setRestaurant(restaurantData);
+        // Ensure rating is never null
+        const safeRestaurantData = {
+          ...restaurantData,
+          rating: restaurantData.rating ?? 0,
+        };
+
+        setRestaurant(safeRestaurantData);
 
         // Fetch meals for this restaurant
         const restaurantMeals = await fetchMealsByRestaurant(id);
@@ -87,39 +93,40 @@ export default function RestaurantDetailsScreen() {
     </View>
   );
 
+  // Safe values with fallbacks
+  const rating = restaurant.rating ?? 0;
+  const imageUrl = restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+  const logoUrl = restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80';
+
   return (
     <>
       <Stack.Screen 
         options={{ 
-          title: restaurant.name,
+          title: restaurant.name || 'Restaurant',
           headerBackTitle: "Back",
         }} 
       />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
           <Image 
-            source={{ 
-              uri: restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-            }} 
+            source={{ uri: imageUrl }} 
             style={styles.heroImage} 
           />
           <View style={styles.logoContainer}>
             <Image 
-              source={{ 
-                uri: restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80'
-              }} 
+              source={{ uri: logoUrl }} 
               style={styles.logo} 
             />
           </View>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.name}>{restaurant.name}</Text>
+          <Text style={styles.name}>{restaurant.name || 'Restaurant'}</Text>
           
           <View style={styles.infoRow}>
             <View style={styles.ratingContainer}>
               <Star size={16} color="#F59E0B" fill="#F59E0B" />
-              <Text style={styles.rating}>{restaurant.rating.toFixed(1)}</Text>
+              <Text style={styles.rating}>{rating.toFixed(1)}</Text>
             </View>
             {restaurant.delivery_time && (
               <View style={styles.infoItem}>

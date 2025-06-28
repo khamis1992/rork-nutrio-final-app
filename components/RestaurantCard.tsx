@@ -15,6 +15,11 @@ export const RestaurantCard = ({
   onPress, 
   onToggleFavorite 
 }: RestaurantCardProps) => {
+  // Safely handle null/undefined values
+  const rating = restaurant.rating ?? 0;
+  const imageUrl = restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+  const logoUrl = restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80';
+
   return (
     <Pressable 
       style={({ pressed }) => [
@@ -25,9 +30,7 @@ export const RestaurantCard = ({
     >
       <View style={styles.imageContainer}>
         <Image 
-          source={{ 
-            uri: restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-          }} 
+          source={{ uri: imageUrl }} 
           style={styles.image} 
         />
         <Pressable 
@@ -45,20 +48,18 @@ export const RestaurantCard = ({
         </Pressable>
         <View style={styles.logoContainer}>
           <Image 
-            source={{ 
-              uri: restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80'
-            }} 
+            source={{ uri: logoUrl }} 
             style={styles.logo} 
           />
         </View>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
+        <Text style={styles.name} numberOfLines={1}>{restaurant.name || 'Restaurant'}</Text>
         
         <View style={styles.ratingRow}>
           <Star size={14} color="#F59E0B" fill="#F59E0B" />
-          <Text style={styles.rating}>{restaurant.rating.toFixed(1)}</Text>
+          <Text style={styles.rating}>{rating.toFixed(1)}</Text>
           {restaurant.cuisine_type && (
             <Text style={styles.cuisineType}>• {restaurant.cuisine_type}</Text>
           )}
