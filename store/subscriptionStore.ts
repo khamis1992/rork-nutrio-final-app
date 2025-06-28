@@ -41,7 +41,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       fetchPlans: async () => {
         set({ isLoading: true });
         try {
-          // Use mock data for plans
+          // Use mock data for plans since they're static
           set({ plans });
           await get().fetchSubscription();
         } catch (error) {
@@ -130,6 +130,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
               break;
           }
 
+          // Calculate meals remaining based on plan
           const mealsRemaining = selectedPlan.duration === 'daily' ? 3 : 
                                 selectedPlan.duration === 'weekly' ? 21 : 90;
 
@@ -156,10 +157,23 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
           if (error) throw error;
 
+          // Update local state immediately
+          set({
+            subscription: {
+              active: true,
+              plan: selectedPlan,
+              startDate: startDate.toISOString().split('T')[0],
+              endDate: endDate.toISOString().split('T')[0],
+              gymAccess: withGymAccess,
+              mealsRemaining: mealsRemaining,
+            },
+          });
+
+          // Fetch fresh data from server
           await get().fetchSubscription();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error subscribing:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to create subscription');
         } finally {
           set({ isLoading: false });
         }
@@ -189,9 +203,9 @@ export const useSubscriptionStore = create<SubscriptionState>()(
               mealsRemaining: 0,
             },
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error canceling subscription:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to cancel subscription');
         } finally {
           set({ isLoading: false });
         }

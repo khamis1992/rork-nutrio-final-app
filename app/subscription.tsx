@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Switch, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Switch, Alert, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useUserStore } from '@/store/userStore';
 import { Button } from '@/components/Button';
 import { Check } from 'lucide-react-native';
 
 export default function SubscriptionScreen() {
   const router = useRouter();
   const { plans, subscribe } = useSubscriptionStore();
+  const { isAuthenticated } = useUserStore();
   const [selectedPlanId, setSelectedPlanId] = useState('weekly');
   const [includeGymAccess, setIncludeGymAccess] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,22 +26,47 @@ export default function SubscriptionScreen() {
   const handleSubscribe = async () => {
     if (!selectedPlan) return;
     
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Login Required",
+        "You need to log in to subscribe to a plan",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          { 
+            text: "Login", 
+            onPress: () => router.push('/login')
+          }
+        ]
+      );
+      return;
+    }
+    
     setIsLoading(true);
     try {
       await subscribe(selectedPlanId, includeGymAccess);
       
       Alert.alert(
-        "Subscription Successful",
-        `You are now subscribed to the ${selectedPlan.name}`,
+        "Subscription Successful! 🎉",
+        `You are now subscribed to the ${selectedPlan.name}${includeGymAccess ? ' with gym access' : ''}`,
         [
           {
-            text: "View Plan",
+            text: "View My Plan",
             onPress: () => router.push('/my-plan')
+          },
+          {
+            text: "Go Home",
+            onPress: () => router.push('/')
           }
         ]
       );
-    } catch (error) {
-      Alert.alert("Error", "Failed to subscribe. Please try again.");
+    } catch (error: any) {
+      Alert.alert(
+        "Subscription Failed", 
+        error.message || "Failed to subscribe. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -140,16 +167,28 @@ export default function SubscriptionScreen() {
       </View>
 
       <Button
-        title="Subscribe Now"
+        title={isAuthenticated ? "Subscribe Now" : "Login to Subscribe"}
         onPress={handleSubscribe}
         style={styles.subscribeButton}
         isLoading={isLoading}
       />
+
+      {!isAuthenticated && (
+        <View style={styles.loginPrompt}>
+          <Text style={styles.loginPromptText}>
+            Already have an account?{' '}
+            <Text 
+              style={styles.loginLink}
+              onPress={() => router.push('/login')}
+            >
+              Log in here
+            </Text>
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
-
-import { Pressable } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
@@ -330,6 +369,18 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   subscribeButton: {
+    marginBottom: theme.spacing.md,
+  },
+  loginPrompt: {
+    alignItems: 'center',
     marginBottom: theme.spacing.xxl,
+  },
+  loginPromptText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+  },
+  loginLink: {
+    color: theme.colors.primary,
+    fontWeight: theme.typography.fontWeights.medium,
   },
 });
