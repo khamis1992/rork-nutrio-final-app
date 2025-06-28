@@ -43,7 +43,6 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         try {
           // Use mock data for plans since they're static
           set({ plans });
-          await get().fetchSubscription();
         } catch (error) {
           console.error('Error fetching plans:', error);
         } finally {
@@ -60,12 +59,15 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           return;
         }
 
+        set({ isLoading: true });
         try {
           const { data, error } = await supabase
             .from('subscriptions')
             .select('*')
             .eq('user_id', supabaseUser.id)
             .eq('active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .single();
 
           if (error && error.code !== 'PGRST116') {
@@ -73,13 +75,25 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           }
 
           if (data) {
-            const plan = get().plans.find(p => p.id === data.plan_id);
+            const plan = get().plans.find(p => p.id === data.plan_id) || null;
+            
+            // Format dates for display
+            const startDate = data.start_date ? new Date(data.start_date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric'
+            }) : null;
+            
+            const endDate = data.end_date ? new Date(data.end_date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric'
+            }) : null;
+
             set({
               subscription: {
                 active: data.active,
-                plan: plan || null,
-                startDate: data.start_date,
-                endDate: data.end_date,
+                plan: plan,
+                startDate: startDate,
+                endDate: endDate,
                 gymAccess: data.gym_access,
                 mealsRemaining: data.meals_remaining,
               },
@@ -98,8 +112,10 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           }
         } catch (error) {
           console.error('Error fetching subscription:', error);
-          // Fall back to mock subscription on error
+          // Fall back to mock subscription on error for demo purposes
           set({ subscription: mockSubscription });
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -156,18 +172,6 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             });
 
           if (error) throw error;
-
-          // Update local state immediately
-          set({
-            subscription: {
-              active: true,
-              plan: selectedPlan,
-              startDate: startDate.toISOString().split('T')[0],
-              endDate: endDate.toISOString().split('T')[0],
-              gymAccess: withGymAccess,
-              mealsRemaining: mealsRemaining,
-            },
-          });
 
           // Fetch fresh data from server
           await get().fetchSubscription();

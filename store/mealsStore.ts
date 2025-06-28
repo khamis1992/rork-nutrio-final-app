@@ -20,9 +20,19 @@ export interface Meal {
   price: number;
 }
 
+interface PlannedMeal {
+  id: string;
+  mealTime: string;
+}
+
+interface DayPlan {
+  date: string;
+  meals: PlannedMeal[];
+}
+
 interface MealsState {
   meals: Meal[];
-  plannedMeals: any[];
+  plannedMeals: DayPlan[];
   selectedCategory: string;
   isLoading: boolean;
   error: string | null;
@@ -73,7 +83,6 @@ export const useMealsStore = create<MealsState>()(
           }));
 
           set({ meals: transformedMeals });
-          await get().fetchPlannedMeals();
         } catch (error: any) {
           console.error('Error fetching meals:', error);
           set({ error: error.message || 'Failed to fetch meals' });
@@ -84,20 +93,27 @@ export const useMealsStore = create<MealsState>()(
 
       fetchPlannedMeals: async () => {
         const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) return;
+        if (!supabaseUser) {
+          set({ plannedMeals: [] });
+          return;
+        }
 
         try {
+          // Get current date to filter out past meals
+          const today = new Date().toISOString().split('T')[0];
+          
           const { data, error } = await supabase
             .from('meal_plans')
             .select('*')
             .eq('user_id', supabaseUser.id)
+            .gte('date', today) // Only get today and future meals
             .order('date', { ascending: true });
 
           if (error) throw error;
 
           // Group by date
-          const groupedMeals: any[] = [];
-          const dateGroups: { [key: string]: any[] } = {};
+          const groupedMeals: DayPlan[] = [];
+          const dateGroups: { [key: string]: PlannedMeal[] } = {};
 
           data?.forEach(plan => {
             if (!dateGroups[plan.date]) {
@@ -109,16 +125,27 @@ export const useMealsStore = create<MealsState>()(
             });
           });
 
+          // Convert to array format and sort meals within each day
           Object.keys(dateGroups).forEach(date => {
+            const mealTimeOrder = { 'Breakfast': 1, 'Lunch': 2, 'Dinner': 3 };
+            const sortedMeals = dateGroups[date].sort((a, b) => {
+              return (mealTimeOrder[a.mealTime as keyof typeof mealTimeOrder] || 4) - 
+                     (mealTimeOrder[b.mealTime as keyof typeof mealTimeOrder] || 4);
+            });
+            
             groupedMeals.push({
               date,
-              meals: dateGroups[date],
+              meals: sortedMeals,
             });
           });
+
+          // Sort by date
+          groupedMeals.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
           set({ plannedMeals: groupedMeals });
         } catch (error) {
           console.error('Error fetching planned meals:', error);
+          set({ plannedMeals: [] });
         }
       },
 
@@ -155,6 +182,7 @@ export const useMealsStore = create<MealsState>()(
 
           if (error) throw error;
 
+          // Refresh planned meals to show updated data
           await get().fetchPlannedMeals();
         } catch (error: any) {
           console.error('Error adding meal to plan:', error);
@@ -176,6 +204,7 @@ export const useMealsStore = create<MealsState>()(
 
           if (error) throw error;
 
+          // Refresh planned meals to show updated data
           await get().fetchPlannedMeals();
         } catch (error: any) {
           console.error('Error removing meal from plan:', error);

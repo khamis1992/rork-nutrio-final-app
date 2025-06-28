@@ -1,24 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Alert, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useMealsStore } from '@/store/mealsStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useUserStore } from '@/store/userStore';
 import { PlannedMealCard } from '@/components/PlannedMealCard';
 import { Button } from '@/components/Button';
 
 export default function MyPlanScreen() {
   const router = useRouter();
-  const { meals, plannedMeals, getMealById, removeMealFromPlan } = useMealsStore();
-  const { subscription } = useSubscriptionStore();
+  const { meals, plannedMeals, getMealById, removeMealFromPlan, fetchPlannedMeals } = useMealsStore();
+  const { subscription, fetchSubscription, isLoading: subscriptionLoading } = useSubscriptionStore();
+  const { isAuthenticated } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Group planned meals by date
-  const groupedMeals = plannedMeals.sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  // Fetch data when component mounts or when authentication status changes
+  useEffect(() => {
+    const loadData = async () => {
+      if (isAuthenticated) {
+        setIsLoading(true);
+        try {
+          await Promise.all([
+            fetchSubscription(),
+            fetchPlannedMeals()
+          ]);
+        } catch (error) {
+          console.error('Error loading plan data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
 
-  const handleRemoveMeal = (date: string, mealTime: string) => {
+    loadData();
+  }, [isAuthenticated, fetchSubscription, fetchPlannedMeals]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchSubscription(),
+        fetchPlannedMeals()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing plan data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isAuthenticated, fetchSubscription, fetchPlannedMeals]);
+
+  // Group planned meals by date and sort by date
+  const groupedMeals = plannedMeals
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter(dayPlan => {
+      // Only show future dates and today
+      const planDate = new Date(dayPlan.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return planDate >= today;
+    });
+
+  const handleRemoveMeal = async (date: string, mealTime: string) => {
     Alert.alert(
       "Remove Meal",
       "Are you sure you want to remove this meal from your plan?",
@@ -29,7 +75,13 @@ export default function MyPlanScreen() {
         },
         { 
           text: "Remove", 
-          onPress: () => removeMealFromPlan(date, mealTime),
+          onPress: async () => {
+            try {
+              await removeMealFromPlan(date, mealTime);
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to remove meal");
+            }
+          },
           style: "destructive"
         }
       ]
@@ -37,13 +89,51 @@ export default function MyPlanScreen() {
   };
 
   const handleSwapMeal = (date: string, mealTime: string) => {
+    // Navigate to meals screen with swap parameters
     router.push({
-      pathname: '/meals',
+      pathname: '/(tabs)/meals',
       params: { date, mealTime, action: 'swap' }
     });
   };
 
-  if (!subscription.active) {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+  };
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.subscribeContainer}>
+        <Text style={styles.subscribeTitle}>Login Required</Text>
+        <Text style={styles.subscribeText}>
+          Please log in to view your meal plan
+        </Text>
+        <Button
+          title="Login"
+          onPress={() => router.push('/login')}
+          style={styles.subscribeButton}
+        />
+      </View>
+    );
+  }
+
+  // Show subscription prompt if no active subscription
+  if (!subscription.active && !subscriptionLoading) {
     return (
       <View style={styles.subscribeContainer}>
         <Text style={styles.subscribeTitle}>No Active Subscription</Text>
@@ -64,35 +154,56 @@ export default function MyPlanScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>My Meal Plan</Text>
-          <Text style={styles.subtitle}>
-            {subscription.startDate} to {subscription.endDate}
-          </Text>
+          {subscription.active && (
+            <Text style={styles.subtitle}>
+              {subscription.plan?.name} • {subscription.startDate} to {subscription.endDate}
+            </Text>
+          )}
         </View>
-        <View style={styles.mealsRemainingBadge}>
-          <Text style={styles.mealsRemainingText}>
-            {subscription.mealsRemaining} meals remaining
-          </Text>
-        </View>
+        {subscription.active && (
+          <View style={styles.mealsRemainingBadge}>
+            <Text style={styles.mealsRemainingText}>
+              {subscription.mealsRemaining} meals left
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView 
         style={styles.mealsContainer}
         contentContainerStyle={styles.mealsContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        {groupedMeals.length > 0 ? (
+        {isLoading && groupedMeals.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading your meal plan...</Text>
+          </View>
+        ) : groupedMeals.length > 0 ? (
           groupedMeals.map((dayPlan) => (
             <View key={dayPlan.date} style={styles.dayContainer}>
               <Text style={styles.dateHeader}>
-                {new Date(dayPlan.date).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {formatDate(dayPlan.date)}
               </Text>
               {dayPlan.meals.map((mealPlan: any) => {
                 const meal = getMealById(mealPlan.id);
-                if (!meal) return null;
+                if (!meal) {
+                  return (
+                    <View key={`${dayPlan.date}-${mealPlan.mealTime}`} style={styles.missingMealCard}>
+                      <Text style={styles.missingMealText}>
+                        {mealPlan.mealTime} - Meal not found
+                      </Text>
+                      <Button
+                        title="Remove"
+                        onPress={() => handleRemoveMeal(dayPlan.date, mealPlan.mealTime)}
+                        variant="outline"
+                        size="small"
+                      />
+                    </View>
+                  );
+                }
                 
                 return (
                   <PlannedMealCard
@@ -111,13 +222,41 @@ export default function MyPlanScreen() {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No meals planned yet</Text>
             <Text style={styles.emptySubtext}>
-              Browse meals and add them to your plan
+              Browse meals and add them to your plan to get started
             </Text>
             <Button
               title="Browse Meals"
-              onPress={() => router.push('/meals')}
+              onPress={() => router.push('/(tabs)/meals')}
               style={styles.browseButton}
             />
+          </View>
+        )}
+
+        {subscription.active && groupedMeals.length > 0 && (
+          <View style={styles.planSummary}>
+            <Text style={styles.planSummaryTitle}>Plan Summary</Text>
+            <View style={styles.planSummaryRow}>
+              <Text style={styles.planSummaryLabel}>Subscription:</Text>
+              <Text style={styles.planSummaryValue}>{subscription.plan?.name}</Text>
+            </View>
+            <View style={styles.planSummaryRow}>
+              <Text style={styles.planSummaryLabel}>Meals Remaining:</Text>
+              <Text style={styles.planSummaryValue}>{subscription.mealsRemaining}</Text>
+            </View>
+            <View style={styles.planSummaryRow}>
+              <Text style={styles.planSummaryLabel}>Gym Access:</Text>
+              <Text style={styles.planSummaryValue}>
+                {subscription.gymAccess ? 'Included' : 'Not included'}
+              </Text>
+            </View>
+            {subscription.gymAccess && (
+              <Button
+                title="View Gyms"
+                onPress={() => router.push('/gyms')}
+                variant="outline"
+                style={styles.gymButton}
+              />
+            )}
           </View>
         )}
       </ScrollView>
@@ -145,6 +284,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: theme.typography.fontSizes.md,
     color: theme.colors.textLight,
+    marginTop: theme.spacing.xs,
   },
   mealsRemainingBadge: {
     backgroundColor: theme.colors.primaryLight,
@@ -163,6 +303,15 @@ const styles = StyleSheet.create({
   mealsContent: {
     padding: theme.spacing.md,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xxl,
+  },
+  loadingText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+  },
   dayContainer: {
     marginBottom: theme.spacing.lg,
   },
@@ -171,6 +320,23 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeights.semibold,
     color: theme.colors.text,
     marginBottom: theme.spacing.sm,
+  },
+  missingMealCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    ...theme.shadows.sm,
+  },
+  missingMealText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.error,
+    flex: 1,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -212,5 +378,35 @@ const styles = StyleSheet.create({
   },
   subscribeButton: {
     minWidth: 200,
+  },
+  planSummary: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    ...theme.shadows.md,
+  },
+  planSummaryTitle: {
+    fontSize: theme.typography.fontSizes.lg,
+    fontWeight: theme.typography.fontWeights.semibold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
+  planSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
+  planSummaryLabel: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+  },
+  planSummaryValue: {
+    fontSize: theme.typography.fontSizes.md,
+    fontWeight: theme.typography.fontWeights.medium,
+    color: theme.colors.text,
+  },
+  gymButton: {
+    marginTop: theme.spacing.md,
   },
 });
