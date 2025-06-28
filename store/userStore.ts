@@ -5,6 +5,14 @@ import { supabase } from '@/lib/supabase';
 import { mockUser } from '@/mocks/user';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
+export interface ProgressEntry {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -16,13 +24,7 @@ export interface User {
     carbs: number;
     fat: number;
   };
-  progress: {
-    date: string;
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  }[];
+  progress: ProgressEntry[];
 }
 
 interface UserState {
@@ -259,7 +261,7 @@ export const useUserStore = create<UserState>()(
           if (error) throw error;
 
           // Create a complete 7-day array with zeros for missing days
-          const last7Days = [];
+          const last7Days: ProgressEntry[] = [];
           for (let i = 6; i >= 0; i--) {
             const date = new Date();
             date.setDate(date.getDate() - i);
