@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useMealsStore } from '@/store/mealsStore';
@@ -12,18 +12,50 @@ import { Check } from 'lucide-react-native';
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getMealById, addMealToPlan, logMealAsEaten } = useMealsStore();
+  const { getMealById, addMealToPlan, logMealAsEaten, fetchMeals, isLoading: mealsLoading } = useMealsStore();
   const { subscription } = useSubscriptionStore();
   const { isAuthenticated } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
+  const [meal, setMeal] = useState(null);
+  const [loadingMeal, setLoadingMeal] = useState(true);
 
-  const meal = getMealById(id);
+  useEffect(() => {
+    const loadMeal = async () => {
+      setLoadingMeal(true);
+      try {
+        // Ensure meals are fetched if not already loaded
+        await fetchMeals();
+        const foundMeal = getMealById(id);
+        setMeal(foundMeal);
+      } catch (error) {
+        console.error('Error loading meal:', error);
+      } finally {
+        setLoadingMeal(false);
+      }
+    };
+
+    if (id) {
+      loadMeal();
+    }
+  }, [id, fetchMeals, getMealById]);
+
+  if (loadingMeal || mealsLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Loading meal details...</Text>
+      </View>
+    );
+  }
 
   if (!meal) {
     return (
       <View style={styles.notFoundContainer}>
         <Text style={styles.notFoundText}>Meal not found</Text>
+        <Text style={styles.notFoundSubtext}>
+          This meal may have been removed or is no longer available.
+        </Text>
         <Button
           title="Go Back"
           onPress={() => router.back()}
@@ -97,6 +129,7 @@ export default function MealDetailScreen() {
 
   const selectDate = async (mealTime: string) => {
     try {
+      setIsLoading(true);
       // For simplicity, we'll just add it to today's plan
       // In a real app, you'd show a date picker
       const today = new Date().toISOString().split('T')[0];
@@ -117,8 +150,10 @@ export default function MealDetailScreen() {
           }
         ]
       );
-    } catch (error) {
-      Alert.alert("Error", "Failed to add meal to plan");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to add meal to plan");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -149,7 +184,11 @@ export default function MealDetailScreen() {
       
       Alert.alert(
         "Meal Logged Successfully! 🎉",
-        `Added to your nutrition log:\n• ${meal.calories} calories\n• ${meal.protein}g protein\n• ${meal.carbs}g carbs\n• ${meal.fat}g fat`,
+        `Added to your nutrition log:
+• ${meal.calories} calories
+• ${meal.protein}g protein
+• ${meal.carbs}g carbs
+• ${meal.fat}g fat`,
         [
           {
             text: "View Progress",
@@ -189,30 +228,36 @@ export default function MealDetailScreen() {
           compact
         />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{meal.description}</Text>
-        </View>
+        {meal.description && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.description}>{meal.description}</Text>
+          </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ingredients</Text>
-          <View style={styles.ingredientsList}>
-            {meal.ingredients.map((ingredient, index) => (
-              <View key={index} style={styles.ingredientItem}>
-                <View style={styles.bulletPoint} />
-                <Text style={styles.ingredientText}>{ingredient}</Text>
+        {meal.ingredients && meal.ingredients.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ingredients</Text>
+            <View style={styles.ingredientsList}>
+              {meal.ingredients.map((ingredient, index) => (
+                <View key={index} style={styles.ingredientItem}>
+                  <View style={styles.bulletPoint} />
+                  <Text style={styles.ingredientText}>{ingredient}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {meal.category && meal.category.length > 0 && (
+          <View style={styles.categoryContainer}>
+            {meal.category.map((category, index) => (
+              <View key={index} style={styles.categoryBadge}>
+                <Text style={styles.categoryText}>{category}</Text>
               </View>
             ))}
           </View>
-        </View>
-
-        <View style={styles.categoryContainer}>
-          {meal.category.map((category, index) => (
-            <View key={index} style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{category}</Text>
-            </View>
-          ))}
-        </View>
+        )}
 
         <View style={styles.priceContainer}>
           <Text style={styles.priceLabel}>Price</Text>
@@ -224,13 +269,14 @@ export default function MealDetailScreen() {
             title="Add to Plan"
             onPress={handleAddToPlan}
             style={styles.addButton}
+            isLoading={isLoading && !isLogged}
           />
           <Button
             title={isLogged ? "Logged ✓" : "Log as Eaten"}
             onPress={handleLogAsEaten}
             variant={isLogged ? "secondary" : "outline"}
             style={[styles.logButton, isLogged && styles.loggedButton]}
-            isLoading={isLoading}
+            isLoading={isLoading && !isLogged}
             disabled={isLogged}
           />
         </View>
@@ -252,6 +298,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.background,
+  },
+  loadingText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    marginTop: theme.spacing.md,
   },
   image: {
     width: '100%',
@@ -386,11 +443,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.xl,
+    backgroundColor: theme.colors.background,
   },
   notFoundText: {
     fontSize: theme.typography.fontSizes.xl,
     fontWeight: theme.typography.fontWeights.bold,
     color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  notFoundSubtext: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    textAlign: 'center',
     marginBottom: theme.spacing.lg,
   },
   backButton: {

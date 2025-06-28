@@ -60,16 +60,16 @@ export const useMealsStore = create<MealsState>()(
             id: meal.id,
             name: meal.name,
             description: meal.description || '',
-            image: meal.image_url || '',
-            calories: meal.calories,
-            protein: meal.protein,
-            carbs: meal.carbs,
-            fat: meal.fat,
-            restaurant: meal.restaurant_name || '',
-            restaurantLogo: meal.restaurant_logo_url || '',
+            image: meal.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+            calories: meal.calories || 0,
+            protein: meal.protein || 0,
+            carbs: meal.carbs || 0,
+            fat: meal.fat || 0,
+            restaurant: meal.restaurant_name || 'Unknown Restaurant',
+            restaurantLogo: meal.restaurant_logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80',
             category: meal.category || [],
             ingredients: meal.ingredients || [],
-            price: Number(meal.price),
+            price: Number(meal.price) || 0,
           }));
 
           set({ meals: transformedMeals });
@@ -156,9 +156,9 @@ export const useMealsStore = create<MealsState>()(
           if (error) throw error;
 
           await get().fetchPlannedMeals();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error adding meal to plan:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to add meal to plan');
         }
       },
 
@@ -177,15 +177,15 @@ export const useMealsStore = create<MealsState>()(
           if (error) throw error;
 
           await get().fetchPlannedMeals();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error removing meal from plan:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to remove meal from plan');
         }
       },
 
       logMealAsEaten: async (mealId) => {
         const meal = get().getMealById(mealId);
-        if (!meal) return;
+        if (!meal) throw new Error('Meal not found');
 
         try {
           const { logNutrition } = useUserStore.getState();
@@ -195,9 +195,9 @@ export const useMealsStore = create<MealsState>()(
             carbs: meal.carbs,
             fat: meal.fat,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error logging meal as eaten:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to log meal');
         }
       },
     }),
