@@ -6,7 +6,7 @@ import { NutritionSummary } from '@/components/NutritionSummary';
 import { ProgressChart } from '@/components/ProgressChart';
 
 export default function ProgressScreen() {
-  const { user, fetchNutritionProgress, isLoading } = useUserStore();
+  const { user, fetchNutritionProgress, isLoading, error } = useUserStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
@@ -48,21 +48,23 @@ export default function ProgressScreen() {
     fat: 0,
   };
 
-  // Calculate weekly averages (last 7 days)
-  const last7Days = user.progress.slice(-7);
+  // Calculate weekly totals and averages
+  const weeklyTotals = user.progress.reduce(
+    (totals, day) => ({
+      calories: totals.calories + day.calories,
+      protein: totals.protein + day.protein,
+      carbs: totals.carbs + day.carbs,
+      fat: totals.fat + day.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+
+  const daysWithData = user.progress.filter(day => day.calories > 0).length;
   const weeklyAverages = {
-    calories: last7Days.length > 0 ? Math.round(
-      last7Days.reduce((sum, day) => sum + day.calories, 0) / last7Days.length
-    ) : 0,
-    protein: last7Days.length > 0 ? Math.round(
-      last7Days.reduce((sum, day) => sum + day.protein, 0) / last7Days.length
-    ) : 0,
-    carbs: last7Days.length > 0 ? Math.round(
-      last7Days.reduce((sum, day) => sum + day.carbs, 0) / last7Days.length
-    ) : 0,
-    fat: last7Days.length > 0 ? Math.round(
-      last7Days.reduce((sum, day) => sum + day.fat, 0) / last7Days.length
-    ) : 0,
+    calories: daysWithData > 0 ? Math.round(weeklyTotals.calories / daysWithData) : 0,
+    protein: daysWithData > 0 ? Math.round(weeklyTotals.protein / daysWithData) : 0,
+    carbs: daysWithData > 0 ? Math.round(weeklyTotals.carbs / daysWithData) : 0,
+    fat: daysWithData > 0 ? Math.round(weeklyTotals.fat / daysWithData) : 0,
   };
 
   // Calculate goal completion percentages
@@ -72,6 +74,8 @@ export default function ProgressScreen() {
     carbs: user.dailyGoals.carbs > 0 ? Math.round((weeklyAverages.carbs / user.dailyGoals.carbs) * 100) : 0,
     fat: user.dailyGoals.fat > 0 ? Math.round((weeklyAverages.fat / user.dailyGoals.fat) * 100) : 0,
   };
+
+  const hasAnyData = user.progress.some(day => day.calories > 0);
 
   return (
     <ScrollView 
@@ -84,9 +88,15 @@ export default function ProgressScreen() {
     >
       <Text style={styles.title}>Nutrition Progress</Text>
 
-      {user.progress.length > 0 && (
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Error loading data: {error}</Text>
+        </View>
+      )}
+
+      {hasAnyData && (
         <ProgressChart 
-          data={user.progress.slice(-7).map(day => ({ 
+          data={user.progress.map(day => ({ 
             date: day.date, 
             calories: day.calories 
           }))} 
@@ -108,11 +118,17 @@ export default function ProgressScreen() {
         />
       </View>
 
-      {last7Days.length > 0 && (
+      {hasAnyData && (
         <View style={styles.statsContainer}>
           <Text style={styles.sectionTitle}>Weekly Stats (Last 7 Days)</Text>
           
           <View style={styles.statsCard}>
+            <View style={styles.trackingInfo}>
+              <Text style={styles.trackingText}>
+                You've logged {daysWithData} out of 7 days this week
+              </Text>
+            </View>
+
             <View style={styles.statRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Avg. Calories</Text>
@@ -162,16 +178,33 @@ export default function ProgressScreen() {
                 </Text>
               </View>
             </View>
-            
-            <View style={styles.streakContainer}>
-              <Text style={styles.streakLabel}>Tracking Streak</Text>
-              <Text style={styles.streakValue}>{user.progress.length} days</Text>
+
+            <View style={styles.weeklyTotalsContainer}>
+              <Text style={styles.weeklyTotalsTitle}>Weekly Totals</Text>
+              <View style={styles.weeklyTotalsRow}>
+                <View style={styles.weeklyTotalItem}>
+                  <Text style={styles.weeklyTotalValue}>{weeklyTotals.calories}</Text>
+                  <Text style={styles.weeklyTotalLabel}>Calories</Text>
+                </View>
+                <View style={styles.weeklyTotalItem}>
+                  <Text style={styles.weeklyTotalValue}>{weeklyTotals.protein}g</Text>
+                  <Text style={styles.weeklyTotalLabel}>Protein</Text>
+                </View>
+                <View style={styles.weeklyTotalItem}>
+                  <Text style={styles.weeklyTotalValue}>{weeklyTotals.carbs}g</Text>
+                  <Text style={styles.weeklyTotalLabel}>Carbs</Text>
+                </View>
+                <View style={styles.weeklyTotalItem}>
+                  <Text style={styles.weeklyTotalValue}>{weeklyTotals.fat}g</Text>
+                  <Text style={styles.weeklyTotalLabel}>Fat</Text>
+                </View>
+              </View>
             </View>
           </View>
         </View>
       )}
 
-      {user.progress.length === 0 && (
+      {!hasAnyData && (
         <View style={styles.emptyProgressContainer}>
           <Text style={styles.emptyProgressText}>No nutrition data yet</Text>
           <Text style={styles.emptyProgressSubtext}>
@@ -197,6 +230,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: theme.spacing.md,
   },
+  errorContainer: {
+    backgroundColor: theme.colors.error + '20',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.fontSizes.sm,
+    textAlign: 'center',
+  },
   summaryContainer: {
     marginBottom: theme.spacing.lg,
   },
@@ -214,6 +258,18 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     ...theme.shadows.md,
+  },
+  trackingInfo: {
+    backgroundColor: theme.colors.primaryLight + '20',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  trackingText: {
+    fontSize: theme.typography.fontSizes.sm,
+    color: theme.colors.primary,
+    textAlign: 'center',
+    fontWeight: theme.typography.fontWeights.medium,
   },
   statRow: {
     flexDirection: 'row',
@@ -247,21 +303,34 @@ const styles = StyleSheet.create({
   badStat: {
     color: theme.colors.error,
   },
-  streakContainer: {
+  weeklyTotalsContainer: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     paddingTop: theme.spacing.md,
+  },
+  weeklyTotalsTitle: {
+    fontSize: theme.typography.fontSizes.md,
+    fontWeight: theme.typography.fontWeights.semibold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  weeklyTotalsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  weeklyTotalItem: {
     alignItems: 'center',
   },
-  streakLabel: {
-    fontSize: theme.typography.fontSizes.md,
-    color: theme.colors.textLight,
-    marginBottom: theme.spacing.xs,
-  },
-  streakValue: {
-    fontSize: theme.typography.fontSizes.xxl,
+  weeklyTotalValue: {
+    fontSize: theme.typography.fontSizes.lg,
     fontWeight: theme.typography.fontWeights.bold,
     color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  weeklyTotalLabel: {
+    fontSize: theme.typography.fontSizes.xs,
+    color: theme.colors.textLight,
   },
   emptyContainer: {
     flex: 1,

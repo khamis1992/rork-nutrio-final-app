@@ -41,6 +41,18 @@ interface UserState {
   initializeUser: () => Promise<void>;
 }
 
+// Helper function to get date 7 days ago
+const get7DaysAgo = () => {
+  const date = new Date();
+  date.setDate(date.getDate() - 6); // Include today, so -6 gives us 7 days total
+  return date.toISOString().split('T')[0];
+};
+
+// Helper function to get today's date
+const getToday = () => {
+  return new Date().toISOString().split('T')[0];
+};
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
@@ -229,32 +241,45 @@ export const useUserStore = create<UserState>()(
 
       fetchNutritionProgress: async () => {
         const { supabaseUser } = get();
-        if (!supabaseUser) return;
+        if (!supabaseUser) {
+          // For demo purposes, keep mock data when not authenticated
+          return;
+        }
 
         try {
+          const sevenDaysAgo = get7DaysAgo();
+          
           const { data, error } = await supabase
             .from('nutrition_logs')
             .select('*')
             .eq('user_id', supabaseUser.id)
-            .order('date', { ascending: true })
-            .limit(30);
+            .gte('date', sevenDaysAgo)
+            .order('date', { ascending: true });
 
           if (error) throw error;
 
-          if (data) {
-            const progress = data.map(log => ({
-              date: log.date,
-              calories: log.calories,
-              protein: log.protein,
-              carbs: log.carbs,
-              fat: log.fat,
-            }));
-
-            set(state => ({
-              user: state.user ? { ...state.user, progress } : null,
-              error: null,
-            }));
+          // Create a complete 7-day array with zeros for missing days
+          const last7Days = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateString = date.toISOString().split('T')[0];
+            
+            const existingLog = data?.find(log => log.date === dateString);
+            
+            last7Days.push({
+              date: dateString,
+              calories: existingLog?.calories || 0,
+              protein: existingLog?.protein || 0,
+              carbs: existingLog?.carbs || 0,
+              fat: existingLog?.fat || 0,
+            });
           }
+
+          set(state => ({
+            user: state.user ? { ...state.user, progress: last7Days } : null,
+            error: null,
+          }));
         } catch (error: any) {
           console.error('Fetch nutrition progress error:', error);
           set({ error: error.message || 'Failed to fetch nutrition progress' });
@@ -266,7 +291,7 @@ export const useUserStore = create<UserState>()(
         if (!supabaseUser) throw new Error('User not authenticated');
 
         try {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getToday();
 
           // Check if log exists for today
           const { data: existingLog } = await supabase

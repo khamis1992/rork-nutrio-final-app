@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Dimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { theme } from '@/constants/theme';
 
 interface ProgressChartProps {
@@ -11,19 +11,44 @@ interface ProgressChartProps {
 }
 
 export const ProgressChart = ({ data, goal }: ProgressChartProps) => {
-  const maxValue = Math.max(...data.map((item) => item.calories), goal || 0);
+  const maxValue = Math.max(...data.map((item) => item.calories), goal || 0, 100); // Minimum scale of 100
   const chartHeight = 150;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayString = yesterday.toISOString().split('T')[0];
+
+    if (dateString === today) {
+      return 'Today';
+    } else if (dateString === yesterdayString) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+    }
   };
+
+  const hasData = data.some(item => item.calories > 0);
+
+  if (!hasData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Weekly Calories</Text>
+        <View style={styles.emptyChart}>
+          <Text style={styles.emptyText}>No data to display</Text>
+          <Text style={styles.emptySubtext}>Start logging meals to see your progress</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Weekly Calories</Text>
       <View style={styles.chartContainer}>
-        {goal && (
+        {goal && goal > 0 && (
           <View
             style={[
               styles.goalLine,
@@ -37,23 +62,38 @@ export const ProgressChart = ({ data, goal }: ProgressChartProps) => {
         )}
         <View style={styles.barsContainer}>
           {data.map((item, index) => {
-            const barHeight = (item.calories / maxValue) * chartHeight;
-            const isToday = index === data.length - 1;
+            const barHeight = Math.max((item.calories / maxValue) * chartHeight, 2); // Minimum height of 2
+            const today = new Date().toISOString().split('T')[0];
+            const isToday = item.date === today;
+            const hasCalories = item.calories > 0;
             
             return (
               <View key={item.date} style={styles.barWrapper}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height: barHeight,
-                      backgroundColor: isToday
-                        ? theme.colors.primary
-                        : theme.colors.primaryLight,
-                    },
-                  ]}
-                />
-                <Text style={styles.dateLabel}>{formatDate(item.date)}</Text>
+                <View style={styles.barContainer}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: barHeight,
+                        backgroundColor: !hasCalories 
+                          ? theme.colors.grayLight
+                          : isToday
+                          ? theme.colors.primary
+                          : theme.colors.primaryLight,
+                        opacity: hasCalories ? 1 : 0.5,
+                      },
+                    ]}
+                  />
+                  {hasCalories && (
+                    <Text style={styles.calorieValue}>{item.calories}</Text>
+                  )}
+                </View>
+                <Text style={[
+                  styles.dateLabel,
+                  isToday && styles.todayLabel
+                ]}>
+                  {formatDate(item.date)}
+                </Text>
               </View>
             );
           })}
@@ -81,6 +121,24 @@ const styles = StyleSheet.create({
     height: 180,
     position: 'relative',
   },
+  emptyChart: {
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.grayLight + '30',
+    borderRadius: theme.borderRadius.md,
+  },
+  emptyText: {
+    fontSize: theme.typography.fontSizes.md,
+    fontWeight: theme.typography.fontWeights.medium,
+    color: theme.colors.textLight,
+    marginBottom: theme.spacing.xs,
+  },
+  emptySubtext: {
+    fontSize: theme.typography.fontSizes.sm,
+    color: theme.colors.textLight,
+    textAlign: 'center',
+  },
   goalLine: {
     position: 'absolute',
     left: 0,
@@ -97,6 +155,8 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.xs,
     color: theme.colors.primary,
     fontWeight: theme.typography.fontWeights.medium,
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: theme.spacing.xs,
   },
   barsContainer: {
     flexDirection: 'row',
@@ -109,13 +169,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  barContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 150,
+    position: 'relative',
+  },
   bar: {
     width: 20,
     borderRadius: theme.borderRadius.sm,
+    minHeight: 2,
+  },
+  calorieValue: {
+    position: 'absolute',
+    top: -20,
+    fontSize: theme.typography.fontSizes.xs,
+    color: theme.colors.text,
+    fontWeight: theme.typography.fontWeights.medium,
   },
   dateLabel: {
     marginTop: theme.spacing.xs,
     fontSize: theme.typography.fontSizes.xs,
     color: theme.colors.textLight,
+  },
+  todayLabel: {
+    color: theme.colors.primary,
+    fontWeight: theme.typography.fontWeights.medium,
   },
 });
