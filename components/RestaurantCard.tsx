@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, Pressable } from 'react-native';
 import { theme } from '@/constants/theme';
-import { Restaurant } from '@/mocks/restaurants';
-import { Star, Heart } from 'lucide-react-native';
+import { Restaurant } from '@/store/restaurantsStore';
+import { Star, Heart, Clock, MapPin } from 'lucide-react-native';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -15,21 +15,6 @@ export const RestaurantCard = ({
   onPress, 
   onToggleFavorite 
 }: RestaurantCardProps) => {
-  const getTagColor = (color: string) => {
-    switch (color) {
-      case 'red':
-        return { backgroundColor: '#FEE2E2', color: '#DC2626' };
-      case 'blue':
-        return { backgroundColor: '#DBEAFE', color: '#2563EB' };
-      case 'yellow':
-        return { backgroundColor: '#FEF3C7', color: '#D97706' };
-      case 'green':
-        return { backgroundColor: '#D1FAE5', color: '#059669' };
-      default:
-        return { backgroundColor: theme.colors.grayLight, color: theme.colors.textLight };
-    }
-  };
-
   return (
     <Pressable 
       style={({ pressed }) => [
@@ -39,7 +24,12 @@ export const RestaurantCard = ({
       onPress={onPress}
     >
       <View style={styles.imageContainer}>
-        <Image source={{ uri: restaurant.image }} style={styles.image} />
+        <Image 
+          source={{ 
+            uri: restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          }} 
+          style={styles.image} 
+        />
         <Pressable 
           style={styles.favoriteButton} 
           onPress={(e) => {
@@ -54,7 +44,12 @@ export const RestaurantCard = ({
           />
         </Pressable>
         <View style={styles.logoContainer}>
-          <Image source={{ uri: restaurant.logo }} style={styles.logo} />
+          <Image 
+            source={{ 
+              uri: restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80'
+            }} 
+            style={styles.logo} 
+          />
         </View>
       </View>
 
@@ -63,27 +58,20 @@ export const RestaurantCard = ({
         
         <View style={styles.ratingRow}>
           <Star size={14} color="#F59E0B" fill="#F59E0B" />
-          <Text style={styles.rating}>{restaurant.rating}</Text>
-          <Text style={styles.cuisineType}>• {restaurant.cuisineType}</Text>
+          <Text style={styles.rating}>{restaurant.rating.toFixed(1)}</Text>
+          {restaurant.cuisine_type && (
+            <Text style={styles.cuisineType}>• {restaurant.cuisine_type}</Text>
+          )}
         </View>
 
-        <View style={styles.tagsContainer}>
-          {restaurant.tags.slice(0, 2).map((tag, index) => {
-            const tagStyle = getTagColor(tag.color);
-            return (
-              <View 
-                key={index} 
-                style={[styles.tag, { backgroundColor: tagStyle.backgroundColor }]}
-              >
-                <Text style={[styles.tagText, { color: tagStyle.color }]}>
-                  {tag.text}
-                </Text>
-              </View>
-            );
-          })}
+        <View style={styles.infoRow}>
+          {restaurant.delivery_time && (
+            <View style={styles.infoItem}>
+              <Clock size={12} color={theme.colors.textLight} />
+              <Text style={styles.infoText}>{restaurant.delivery_time}</Text>
+            </View>
+          )}
         </View>
-
-        <Text style={styles.deliveryTime}>{restaurant.deliveryTime}</Text>
       </View>
     </Pressable>
   );
@@ -165,22 +153,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textLight,
     marginLeft: theme.spacing.xs,
   },
-  tagsContainer: {
+  infoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.xs,
   },
-  tag: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-  },
-  tagText: {
-    fontSize: theme.typography.fontSizes.xs,
-    fontWeight: theme.typography.fontWeights.medium,
-  },
-  deliveryTime: {
+  infoText: {
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textLight,
     fontWeight: theme.typography.fontWeights.medium,

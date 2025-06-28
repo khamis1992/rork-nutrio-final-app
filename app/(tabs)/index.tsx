@@ -5,7 +5,7 @@ import { theme } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
 import { useMealsStore } from '@/store/mealsStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { restaurants } from '@/mocks/restaurants';
+import { useRestaurantsStore } from '@/store/restaurantsStore';
 import { NutritionSummary } from '@/components/NutritionSummary';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
 import { CategoryFilter } from '@/components/CategoryFilter';
@@ -19,8 +19,8 @@ export default function HomeScreen() {
   const { user, initializeUser } = useUserStore();
   const { meals, selectedCategory, setSelectedCategory } = useMealsStore();
   const { subscription, fetchSubscription } = useSubscriptionStore();
+  const { restaurants, fetchRestaurants, toggleFavorite } = useRestaurantsStore();
   const [refreshing, setRefreshing] = useState(false);
-  const [favoriteRestaurants, setFavoriteRestaurants] = useState<Set<string>>(new Set());
   
   // Get today's progress
   const todayProgress = user?.progress[user.progress.length - 1];
@@ -35,11 +35,7 @@ export default function HomeScreen() {
   // Get featured restaurants (top 5 with highest ratings)
   const featuredRestaurants = restaurants
     .sort((a, b) => b.rating - a.rating)
-    .slice(0, 5)
-    .map(restaurant => ({
-      ...restaurant,
-      isFavorite: favoriteRestaurants.has(restaurant.id)
-    }));
+    .slice(0, 5);
 
   useEffect(() => {
     // Initialize user and fetch data when component mounts
@@ -47,25 +43,27 @@ export default function HomeScreen() {
       try {
         await initializeUser();
         await fetchSubscription();
+        await fetchRestaurants();
       } catch (error) {
         console.error('Error initializing data:', error);
       }
     };
 
     initializeData();
-  }, [initializeUser, fetchSubscription]);
+  }, [initializeUser, fetchSubscription, fetchRestaurants]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
       await initializeUser();
       await fetchSubscription();
+      await fetchRestaurants();
     } catch (error) {
       console.error('Error refreshing:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [initializeUser, fetchSubscription]);
+  }, [initializeUser, fetchSubscription, fetchRestaurants]);
 
   const handleRestaurantPress = (id: string) => {
     // Navigate to restaurant details
@@ -73,15 +71,7 @@ export default function HomeScreen() {
   };
 
   const handleToggleFavorite = (id: string) => {
-    setFavoriteRestaurants(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(id)) {
-        newFavorites.delete(id);
-      } else {
-        newFavorites.add(id);
-      }
-      return newFavorites;
-    });
+    toggleFavorite(id);
   };
 
   const handleViewAllRestaurants = () => {

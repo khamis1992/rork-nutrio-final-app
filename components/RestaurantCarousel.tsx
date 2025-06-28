@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { theme } from '@/constants/theme';
-import { restaurants } from '@/mocks/restaurants';
+import { useRestaurantsStore } from '@/store/restaurantsStore';
 import { RestaurantCard } from './RestaurantCard';
 
 interface RestaurantCarouselProps {
@@ -17,6 +17,8 @@ export const RestaurantCarousel = ({
   onToggleFavorite,
   onViewAll,
 }: RestaurantCarouselProps) => {
+  const { restaurants } = useRestaurantsStore();
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
