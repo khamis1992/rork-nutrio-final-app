@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { theme } from '@/constants/theme';
 import { restaurants } from '@/mocks/restaurants';
 import { RestaurantCard } from './RestaurantCard';
@@ -8,18 +8,22 @@ interface RestaurantCarouselProps {
   title: string;
   onPressItem?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
+  onViewAll?: () => void;
 }
 
 export const RestaurantCarousel = ({
   title,
   onPressItem,
   onToggleFavorite,
+  onViewAll,
 }: RestaurantCarouselProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.viewAll}>View All</Text>
+        <Pressable onPress={onViewAll}>
+          <Text style={styles.viewAll}>View All</Text>
+        </Pressable>
       </View>
       <ScrollView
         horizontal

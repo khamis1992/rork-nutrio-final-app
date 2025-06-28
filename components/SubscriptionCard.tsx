@@ -1,27 +1,24 @@
 import React from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
-import { SubscriptionStatus } from '@/mocks/plans';
+import { SubscriptionStatus } from '@/store/subscriptionStore';
 
 interface SubscriptionCardProps {
   subscription: SubscriptionStatus;
 }
 
 export const SubscriptionCard = ({ subscription }: SubscriptionCardProps) => {
-  const router = useRouter();
-
-  const handlePress = () => {
-    if (subscription.active) {
-      router.push('/my-plan');
-    } else {
-      router.push('/subscription');
-    }
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   if (!subscription.active) {
     return (
-      <Pressable style={styles.inactiveContainer} onPress={handlePress}>
+      <View style={styles.inactiveContainer}>
         <Text style={styles.inactiveTitle}>No Active Subscription</Text>
         <Text style={styles.inactiveSubtitle}>
           Subscribe to get healthy meals delivered to your door
@@ -29,12 +26,12 @@ export const SubscriptionCard = ({ subscription }: SubscriptionCardProps) => {
         <View style={styles.subscribeButton}>
           <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
         </View>
-      </Pressable>
+      </View>
     );
   }
 
   return (
-    <Pressable style={styles.container} onPress={handlePress}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{subscription.plan?.name}</Text>
         <View style={styles.badge}>
@@ -45,11 +42,11 @@ export const SubscriptionCard = ({ subscription }: SubscriptionCardProps) => {
       <View style={styles.infoContainer}>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Start Date</Text>
-          <Text style={styles.infoValue}>{subscription.startDate}</Text>
+          <Text style={styles.infoValue}>{formatDate(subscription.startDate)}</Text>
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>End Date</Text>
-          <Text style={styles.infoValue}>{subscription.endDate}</Text>
+          <Text style={styles.infoValue}>{formatDate(subscription.endDate)}</Text>
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Meals Remaining</Text>
@@ -82,7 +79,7 @@ export const SubscriptionCard = ({ subscription }: SubscriptionCardProps) => {
           </Text>
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 };
 
@@ -91,6 +88,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
+    marginHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
     ...theme.shadows.md,
   },
@@ -153,6 +151,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
+    marginHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
     alignItems: 'center',
     ...theme.shadows.md,

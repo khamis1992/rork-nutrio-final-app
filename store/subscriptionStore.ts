@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { plans, Plan } from '@/mocks/plans';
+import { plans, Plan, mockSubscription } from '@/mocks/plans';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from './userStore';
 
@@ -41,8 +41,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       fetchPlans: async () => {
         set({ isLoading: true });
         try {
-          // For now, use mock data for plans
-          // In a real app, you'd fetch from Supabase
+          // Use mock data for plans
           set({ plans });
           await get().fetchSubscription();
         } catch (error) {
@@ -53,8 +52,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
 
       fetchSubscription: async () => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) return;
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        
+        if (!isAuthenticated || !supabaseUser) {
+          // Use mock subscription for demo when not authenticated
+          set({ subscription: mockSubscription });
+          return;
+        }
 
         try {
           const { data, error } = await supabase
@@ -94,12 +98,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           }
         } catch (error) {
           console.error('Error fetching subscription:', error);
+          // Fall back to mock subscription on error
+          set({ subscription: mockSubscription });
         }
       },
 
       subscribe: async (planId, withGymAccess) => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) throw new Error('User not authenticated');
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
         set({ isLoading: true });
         try {
@@ -160,8 +166,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
 
       cancelSubscription: async () => {
-        const { supabaseUser } = useUserStore.getState();
-        if (!supabaseUser) throw new Error('User not authenticated');
+        const { supabaseUser, isAuthenticated } = useUserStore.getState();
+        if (!isAuthenticated || !supabaseUser) throw new Error('User not authenticated');
 
         set({ isLoading: true });
         try {

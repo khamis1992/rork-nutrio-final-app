@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, Pressable, Image, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
@@ -16,9 +16,11 @@ import { Button } from '@/components/Button';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useUserStore();
+  const { user, initializeUser } = useUserStore();
   const { meals, selectedCategory, setSelectedCategory } = useMealsStore();
-  const { subscription } = useSubscriptionStore();
+  const { subscription, fetchSubscription } = useSubscriptionStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const [favoriteRestaurants, setFavoriteRestaurants] = useState<Set<string>>(new Set());
   
   // Get today's progress
   const todayProgress = user?.progress[user.progress.length - 1];
@@ -30,18 +32,85 @@ export default function HomeScreen() {
         meal.category.some(cat => cat.toLowerCase() === selectedCategory.toLowerCase())
       );
 
+  // Get featured restaurants (top 5 with highest ratings)
+  const featuredRestaurants = restaurants
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 5)
+    .map(restaurant => ({
+      ...restaurant,
+      isFavorite: favoriteRestaurants.has(restaurant.id)
+    }));
+
+  useEffect(() => {
+    // Initialize user and fetch data when component mounts
+    const initializeData = async () => {
+      try {
+        await initializeUser();
+        await fetchSubscription();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
+    };
+
+    initializeData();
+  }, [initializeUser, fetchSubscription]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await initializeUser();
+      await fetchSubscription();
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [initializeUser, fetchSubscription]);
+
   const handleRestaurantPress = (id: string) => {
+    // Navigate to restaurant details (placeholder for now)
     console.log(`Restaurant ${id} pressed`);
-    // In a real app, this would navigate to restaurant details
+    // router.push(`/restaurant/${id}`);
   };
 
   const handleToggleFavorite = (id: string) => {
-    console.log(`Toggle favorite for restaurant ${id}`);
-    // In a real app, this would update favorite status
+    setFavoriteRestaurants(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(id)) {
+        newFavorites.delete(id);
+      } else {
+        newFavorites.add(id);
+      }
+      return newFavorites;
+    });
+  };
+
+  const handleViewAllRestaurants = () => {
+    // Navigate to all restaurants screen (placeholder for now)
+    console.log('View all restaurants pressed');
+    // router.push('/restaurants');
+  };
+
+  const handleSubscribePress = () => {
+    router.push('/subscription');
+  };
+
+  const handleMyPlanPress = () => {
+    router.push('/my-plan');
+  };
+
+  const handleGymAccessPress = () => {
+    router.push('/gyms');
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.greeting}>Welcome back, {user?.name || 'Guest'}</Text>
         <Text style={styles.date}>
@@ -53,7 +122,9 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      <SubscriptionCard subscription={subscription} />
+      <Pressable onPress={subscription.active ? handleMyPlanPress : handleSubscribePress}>
+        <SubscriptionCard subscription={subscription} />
+      </Pressable>
 
       {todayProgress && (
         <NutritionSummary
@@ -84,7 +155,7 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.featuredContainer}
         >
-          {restaurants.slice(0, 5).map((restaurant) => (
+          {featuredRestaurants.map((restaurant) => (
             <RestaurantCard 
               key={restaurant.id} 
               restaurant={restaurant}
@@ -99,9 +170,10 @@ export default function HomeScreen() {
         title="Partnered Restaurants"
         onPressItem={handleRestaurantPress}
         onToggleFavorite={handleToggleFavorite}
+        onViewAll={handleViewAllRestaurants}
       />
 
-      <View style={styles.gymAccessSection}>
+      <Pressable style={styles.gymAccessSection} onPress={handleGymAccessPress}>
         <View style={styles.gymAccessContent}>
           <Text style={styles.gymAccessTitle}>Gym Access Included</Text>
           <Text style={styles.gymAccessDescription}>
@@ -109,7 +181,7 @@ export default function HomeScreen() {
           </Text>
           <Button
             title="View Gyms"
-            onPress={() => router.push('/gyms')}
+            onPress={handleGymAccessPress}
             variant="outline"
             size="small"
             style={styles.gymAccessButton}
@@ -121,7 +193,7 @@ export default function HomeScreen() {
           }}
           style={styles.gymAccessImage}
         />
-      </View>
+      </Pressable>
     </ScrollView>
   );
 }

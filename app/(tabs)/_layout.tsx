@@ -4,15 +4,27 @@ import { Home, Utensils, Calendar, BarChart2, User } from "lucide-react-native";
 import { theme } from "@/constants/theme";
 import { useMealsStore } from "@/store/mealsStore";
 import { useSubscriptionStore } from "@/store/subscriptionStore";
+import { useUserStore } from "@/store/userStore";
 
 export default function TabLayout() {
   const { fetchMeals } = useMealsStore();
   const { fetchPlans } = useSubscriptionStore();
+  const { initializeUser } = useUserStore();
 
   useEffect(() => {
-    fetchMeals();
-    fetchPlans();
-  }, [fetchMeals, fetchPlans]);
+    // Initialize app data when tab layout mounts
+    const initializeApp = async () => {
+      try {
+        await initializeUser();
+        await fetchMeals();
+        await fetchPlans();
+      } catch (error) {
+        console.error('Error initializing app:', error);
+      }
+    };
+
+    initializeApp();
+  }, [fetchMeals, fetchPlans, initializeUser]);
 
   return (
     <Tabs

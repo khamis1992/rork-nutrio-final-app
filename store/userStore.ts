@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { mockUser } from '@/mocks/user';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export interface User {
@@ -36,6 +37,7 @@ interface UserState {
   fetchUserProfile: () => Promise<void>;
   fetchNutritionProgress: () => Promise<void>;
   logNutrition: (nutrition: { calories: number; protein: number; carbs: number; fat: number }) => Promise<void>;
+  initializeUser: () => Promise<void>;
 }
 
 export const useUserStore = create<UserState>()(
@@ -45,6 +47,25 @@ export const useUserStore = create<UserState>()(
       supabaseUser: null,
       isAuthenticated: false,
       isLoading: false,
+
+      initializeUser: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          set({ 
+            supabaseUser: session.user, 
+            isAuthenticated: true 
+          });
+          await get().fetchUserProfile();
+          await get().fetchNutritionProgress();
+        } else {
+          // Use mock user for demo purposes when not authenticated
+          set({ 
+            user: mockUser,
+            isAuthenticated: false 
+          });
+        }
+      },
 
       login: async (email, password) => {
         set({ isLoading: true });
@@ -108,7 +129,7 @@ export const useUserStore = create<UserState>()(
         try {
           await supabase.auth.signOut();
           set({ 
-            user: null, 
+            user: mockUser, // Fall back to mock user
             supabaseUser: null, 
             isAuthenticated: false 
           });
@@ -278,7 +299,7 @@ export const useUserStore = create<UserState>()(
 
 // Initialize auth state
 supabase.auth.onAuthStateChange((event, session) => {
-  const { fetchUserProfile, fetchNutritionProgress } = useUserStore.getState();
+  const { fetchUserProfile, fetchNutritionProgress, initializeUser } = useUserStore.getState();
   
   if (event === 'SIGNED_IN' && session?.user) {
     useUserStore.setState({ 
@@ -289,7 +310,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     fetchNutritionProgress();
   } else if (event === 'SIGNED_OUT') {
     useUserStore.setState({ 
-      user: null, 
+      user: mockUser, // Fall back to mock user
       supabaseUser: null, 
       isAuthenticated: false 
     });
