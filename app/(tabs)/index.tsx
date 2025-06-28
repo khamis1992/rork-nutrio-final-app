@@ -5,10 +5,12 @@ import { theme } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
 import { useMealsStore } from '@/store/mealsStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { restaurants } from '@/mocks/restaurants';
 import { NutritionSummary } from '@/components/NutritionSummary';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { MealCard } from '@/components/MealCard';
+import { RestaurantCard } from '@/components/RestaurantCard';
 import { RestaurantCarousel } from '@/components/RestaurantCarousel';
 import { Button } from '@/components/Button';
 
@@ -80,10 +82,15 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.featuredMealsContainer}
+          contentContainerStyle={styles.featuredContainer}
         >
-          {filteredMeals.slice(0, 5).map((meal) => (
-            <MealCard key={meal.id} meal={meal} compact />
+          {restaurants.slice(0, 5).map((restaurant) => (
+            <RestaurantCard 
+              key={restaurant.id} 
+              restaurant={restaurant}
+              onPress={() => handleRestaurantPress(restaurant.id)}
+              onToggleFavorite={() => handleToggleFavorite(restaurant.id)}
+            />
           ))}
         </ScrollView>
       </View>
@@ -152,7 +159,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeights.semibold,
     color: theme.colors.text,
   },
-  featuredMealsContainer: {
+  featuredContainer: {
     paddingHorizontal: theme.spacing.md,
   },
   gymAccessSection: {
