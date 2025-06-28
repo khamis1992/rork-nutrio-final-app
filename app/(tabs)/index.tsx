@@ -11,7 +11,6 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { MealCard } from '@/components/MealCard';
 import { RestaurantCarousel } from '@/components/RestaurantCarousel';
 import { Button } from '@/components/Button';
-import { Sparkles } from 'lucide-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -28,17 +27,6 @@ export default function HomeScreen() {
     : meals.filter(meal => 
         meal.category.some(cat => cat.toLowerCase() === selectedCategory.toLowerCase())
       );
-  
-  // Get random meal for "Surprise Me" feature
-  const getRandomMeal = () => {
-    const randomIndex = Math.floor(Math.random() * meals.length);
-    return meals[randomIndex];
-  };
-  
-  const handleSurpriseMe = () => {
-    const randomMeal = getRandomMeal();
-    router.push(`/meal/${randomMeal.id}`);
-  };
 
   const handleRestaurantPress = (id: string) => {
     console.log(`Restaurant ${id} pressed`);
@@ -87,10 +75,6 @@ export default function HomeScreen() {
       <View style={styles.featuredSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Featured Meals</Text>
-          <Pressable onPress={handleSurpriseMe} style={styles.surpriseButton}>
-            <Sparkles size={16} color={theme.colors.primary} />
-            <Text style={styles.surpriseText}>Surprise Me</Text>
-          </Pressable>
         </View>
 
         <ScrollView
@@ -160,9 +144,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
@@ -170,20 +151,6 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.lg,
     fontWeight: theme.typography.fontWeights.semibold,
     color: theme.colors.text,
-  },
-  surpriseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primaryLight,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-  },
-  surpriseText: {
-    fontSize: theme.typography.fontSizes.sm,
-    color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeights.medium,
-    marginLeft: theme.spacing.xs,
   },
   featuredMealsContainer: {
     paddingHorizontal: theme.spacing.md,
