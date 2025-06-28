@@ -8,6 +8,7 @@ import { useUserStore } from '@/store/userStore';
 import { Button } from '@/components/Button';
 import { NutritionSummary } from '@/components/NutritionSummary';
 import { Check } from 'lucide-react-native';
+import { Meal } from '@/store/mealsStore';
 
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,7 +18,7 @@ export default function MealDetailScreen() {
   const { isAuthenticated } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
-  const [meal, setMeal] = useState(null);
+  const [meal, setMeal] = useState<Meal | null>(null);
   const [loadingMeal, setLoadingMeal] = useState(true);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function MealDetailScreen() {
         // Ensure meals are fetched if not already loaded
         await fetchMeals();
         const foundMeal = getMealById(id);
-        setMeal(foundMeal);
+        setMeal(foundMeal || null);
       } catch (error) {
         console.error('Error loading meal:', error);
       } finally {
@@ -128,6 +129,8 @@ export default function MealDetailScreen() {
   };
 
   const selectDate = async (mealTime: string) => {
+    if (!meal) return;
+    
     try {
       setIsLoading(true);
       // For simplicity, we'll just add it to today's plan
@@ -158,6 +161,8 @@ export default function MealDetailScreen() {
   };
 
   const handleLogAsEaten = async () => {
+    if (!meal) return;
+    
     if (!isAuthenticated) {
       Alert.alert(
         "Login Required",
@@ -239,7 +244,7 @@ export default function MealDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ingredients</Text>
             <View style={styles.ingredientsList}>
-              {meal.ingredients.map((ingredient, index) => (
+              {meal.ingredients.map((ingredient: string, index: number) => (
                 <View key={index} style={styles.ingredientItem}>
                   <View style={styles.bulletPoint} />
                   <Text style={styles.ingredientText}>{ingredient}</Text>
@@ -251,7 +256,7 @@ export default function MealDetailScreen() {
 
         {meal.category && meal.category.length > 0 && (
           <View style={styles.categoryContainer}>
-            {meal.category.map((category, index) => (
+            {meal.category.map((category: string, index: number) => (
               <View key={index} style={styles.categoryBadge}>
                 <Text style={styles.categoryText}>{category}</Text>
               </View>
