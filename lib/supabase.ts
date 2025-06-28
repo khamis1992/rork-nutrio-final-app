@@ -150,6 +150,95 @@ export interface Database {
           meal_time?: string;
         };
       };
+      restaurants: {
+        Row: {
+          id: string;
+          name: string;
+          logo_url: string | null;
+          image_url: string | null;
+          rating: number;
+          cuisine_type: string | null;
+          delivery_time: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          logo_url?: string | null;
+          image_url?: string | null;
+          rating?: number;
+          cuisine_type?: string | null;
+          delivery_time?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          logo_url?: string | null;
+          image_url?: string | null;
+          rating?: number;
+          cuisine_type?: string | null;
+          delivery_time?: string | null;
+        };
+      };
+      meals: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          image_url: string | null;
+          calories: number;
+          protein: number;
+          carbs: number;
+          fat: number;
+          restaurant_id: string | null;
+          restaurant_name: string | null;
+          restaurant_logo_url: string | null;
+          category: string[];
+          ingredients: string[];
+          price: number;
+          available: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          image_url?: string | null;
+          calories?: number;
+          protein?: number;
+          carbs?: number;
+          fat?: number;
+          restaurant_id?: string | null;
+          restaurant_name?: string | null;
+          restaurant_logo_url?: string | null;
+          category?: string[];
+          ingredients?: string[];
+          price?: number;
+          available?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          image_url?: string | null;
+          calories?: number;
+          protein?: number;
+          carbs?: number;
+          fat?: number;
+          restaurant_id?: string | null;
+          restaurant_name?: string | null;
+          restaurant_logo_url?: string | null;
+          category?: string[];
+          ingredients?: string[];
+          price?: number;
+          available?: boolean;
+          updated_at?: string;
+        };
+      };
     };
   };
 }

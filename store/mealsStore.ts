@@ -1,15 +1,31 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { meals, Meal, categories } from '@/mocks/meals';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from './userStore';
+
+export interface Meal {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  restaurant: string;
+  restaurantLogo: string;
+  category: string[];
+  ingredients: string[];
+  price: number;
+}
 
 interface MealsState {
   meals: Meal[];
   plannedMeals: any[];
   selectedCategory: string;
   isLoading: boolean;
+  error: string | null;
   fetchMeals: () => Promise<void>;
   fetchPlannedMeals: () => Promise<void>;
   setSelectedCategory: (category: string) => void;
@@ -26,16 +42,41 @@ export const useMealsStore = create<MealsState>()(
       plannedMeals: [],
       selectedCategory: 'all',
       isLoading: false,
+      error: null,
 
       fetchMeals: async () => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
-          // For now, use mock data for meals
-          // In a real app, you'd fetch from Supabase
-          set({ meals });
+          const { data, error } = await supabase
+            .from('meals')
+            .select('*')
+            .eq('available', true)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+
+          // Transform Supabase data to match our Meal interface
+          const transformedMeals: Meal[] = (data || []).map(meal => ({
+            id: meal.id,
+            name: meal.name,
+            description: meal.description || '',
+            image: meal.image_url || '',
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            restaurant: meal.restaurant_name || '',
+            restaurantLogo: meal.restaurant_logo_url || '',
+            category: meal.category || [],
+            ingredients: meal.ingredients || [],
+            price: Number(meal.price),
+          }));
+
+          set({ meals: transformedMeals });
           await get().fetchPlannedMeals();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching meals:', error);
+          set({ error: error.message || 'Failed to fetch meals' });
         } finally {
           set({ isLoading: false });
         }
@@ -165,7 +206,6 @@ export const useMealsStore = create<MealsState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         selectedCategory: state.selectedCategory,
-        meals: state.meals,
       }),
     }
   )
