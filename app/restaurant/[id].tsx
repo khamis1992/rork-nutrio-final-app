@@ -1,51 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Image, ActivityIndicator, FlatList } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { theme } from '@/constants/theme';
-import { restaurants } from '@/mocks/restaurants';
-import { Restaurant } from '@/mocks/restaurants';
+import { supabase } from '@/lib/supabase';
+import { useMealsStore, Meal } from '@/store/mealsStore';
+import { MealCard } from '@/components/MealCard';
 import { Star, Clock, MapPin } from 'lucide-react-native';
+
+interface Restaurant {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  image_url: string | null;
+  rating: number;
+  cuisine_type: string | null;
+  delivery_time: string | null;
+}
 
 export default function RestaurantDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { fetchMealsByRestaurant } = useMealsStore();
 
   useEffect(() => {
-    // Simulate fetching restaurant data
-    // In a real app, this would be a Supabase query
-    const fetchRestaurant = async () => {
+    const fetchRestaurantData = async () => {
+      if (!id) return;
+
       try {
         setLoading(true);
-        // Find restaurant from mock data
-        const foundRestaurant = restaurants.find(r => r.id === id);
-        setRestaurant(foundRestaurant || null);
-      } catch (error) {
-        console.error('Error fetching restaurant:', error);
+        setError(null);
+
+        // Fetch restaurant data
+        const { data: restaurantData, error: restaurantError } = await supabase
+          .from('restaurants')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (restaurantError) {
+          throw new Error(restaurantError.message);
+        }
+
+        setRestaurant(restaurantData);
+
+        // Fetch meals for this restaurant
+        const restaurantMeals = await fetchMealsByRestaurant(id);
+        setMeals(restaurantMeals);
+
+      } catch (err: any) {
+        console.error('Error fetching restaurant data:', err);
+        setError(err.message || 'Failed to load restaurant data');
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-      fetchRestaurant();
-    }
-  }, [id]);
-
-  const getTagColor = (color: string) => {
-    switch (color) {
-      case 'red':
-        return { backgroundColor: '#FEE2E2', color: '#DC2626' };
-      case 'blue':
-        return { backgroundColor: '#DBEAFE', color: '#2563EB' };
-      case 'yellow':
-        return { backgroundColor: '#FEF3C7', color: '#D97706' };
-      case 'green':
-        return { backgroundColor: '#D1FAE5', color: '#059669' };
-      default:
-        return { backgroundColor: theme.colors.grayLight, color: theme.colors.textLight };
-    }
-  };
+    fetchRestaurantData();
+  }, [id, fetchMealsByRestaurant]);
 
   if (loading) {
     return (
@@ -56,13 +71,21 @@ export default function RestaurantDetailsScreen() {
     );
   }
 
-  if (!restaurant) {
+  if (error || !restaurant) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Restaurant not found</Text>
+        <Text style={styles.errorText}>
+          {error || 'Restaurant not found'}
+        </Text>
       </View>
     );
   }
+
+  const renderMealItem = ({ item }: { item: Meal }) => (
+    <View style={styles.mealItem}>
+      <MealCard meal={item} />
+    </View>
+  );
 
   return (
     <>
@@ -74,9 +97,19 @@ export default function RestaurantDetailsScreen() {
       />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: restaurant.image }} style={styles.heroImage} />
+          <Image 
+            source={{ 
+              uri: restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+            }} 
+            style={styles.heroImage} 
+          />
           <View style={styles.logoContainer}>
-            <Image source={{ uri: restaurant.logo }} style={styles.logo} />
+            <Image 
+              source={{ 
+                uri: restaurant.logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80'
+              }} 
+              style={styles.logo} 
+            />
           </View>
         </View>
 
@@ -86,41 +119,44 @@ export default function RestaurantDetailsScreen() {
           <View style={styles.infoRow}>
             <View style={styles.ratingContainer}>
               <Star size={16} color="#F59E0B" fill="#F59E0B" />
-              <Text style={styles.rating}>{restaurant.rating}</Text>
+              <Text style={styles.rating}>{restaurant.rating.toFixed(1)}</Text>
             </View>
-            <View style={styles.infoItem}>
-              <Clock size={16} color={theme.colors.textLight} />
-              <Text style={styles.infoText}>{restaurant.deliveryTime}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <MapPin size={16} color={theme.colors.textLight} />
-              <Text style={styles.infoText}>{restaurant.cuisineType}</Text>
-            </View>
-          </View>
-
-          <View style={styles.tagsContainer}>
-            {restaurant.tags.map((tag, index) => {
-              const tagStyle = getTagColor(tag.color);
-              return (
-                <View 
-                  key={index} 
-                  style={[styles.tag, { backgroundColor: tagStyle.backgroundColor }]}
-                >
-                  <Text style={[styles.tagText, { color: tagStyle.color }]}>
-                    {tag.text}
-                  </Text>
-                </View>
-              );
-            })}
+            {restaurant.delivery_time && (
+              <View style={styles.infoItem}>
+                <Clock size={16} color={theme.colors.textLight} />
+                <Text style={styles.infoText}>{restaurant.delivery_time}</Text>
+              </View>
+            )}
+            {restaurant.cuisine_type && (
+              <View style={styles.infoItem}>
+                <MapPin size={16} color={theme.colors.textLight} />
+                <Text style={styles.infoText}>{restaurant.cuisine_type}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
             <Text style={styles.description}>
-              Experience the finest {restaurant.cuisineType.toLowerCase()} cuisine with fresh, 
+              Experience the finest {restaurant.cuisine_type?.toLowerCase() || 'cuisine'} with fresh, 
               locally-sourced ingredients. Our chefs prepare each dish with passion and attention 
               to detail, ensuring every meal is a memorable experience.
             </Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Available Meals ({meals.length})</Text>
+            {meals.length > 0 ? (
+              <FlatList
+                data={meals}
+                renderItem={renderMealItem}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            ) : (
+              <Text style={styles.noMealsText}>No meals available at this restaurant.</Text>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -128,7 +164,7 @@ export default function RestaurantDetailsScreen() {
             <Text style={styles.description}>
               Open daily from 11:00 AM to 10:00 PM{'\n'}
               Delivery available in your area{'\n'}
-              Average delivery time: {restaurant.deliveryTime}
+              {restaurant.delivery_time && `Average delivery time: ${restaurant.delivery_time}`}
             </Text>
           </View>
         </View>
@@ -162,6 +198,8 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: theme.typography.fontSizes.lg,
     color: theme.colors.textLight,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.lg,
   },
   imageContainer: {
     position: 'relative',
@@ -224,21 +262,6 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textLight,
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.xl,
-  },
-  tag: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-  },
-  tagText: {
-    fontSize: theme.typography.fontSizes.sm,
-    fontWeight: theme.typography.fontWeights.medium,
-  },
   section: {
     marginBottom: theme.spacing.xl,
   },
@@ -252,5 +275,15 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.md,
     color: theme.colors.textLight,
     lineHeight: 22,
+  },
+  mealItem: {
+    marginBottom: theme.spacing.sm,
+  },
+  noMealsText: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingVertical: theme.spacing.lg,
   },
 });

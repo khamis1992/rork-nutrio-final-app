@@ -37,6 +37,7 @@ interface MealsState {
   isLoading: boolean;
   error: string | null;
   fetchMeals: () => Promise<void>;
+  fetchMealsByRestaurant: (restaurantId: string) => Promise<Meal[]>;
   fetchPlannedMeals: () => Promise<void>;
   setSelectedCategory: (category: string) => void;
   getMealById: (id: string) => Meal | undefined;
@@ -88,6 +89,41 @@ export const useMealsStore = create<MealsState>()(
           set({ error: error.message || 'Failed to fetch meals' });
         } finally {
           set({ isLoading: false });
+        }
+      },
+
+      fetchMealsByRestaurant: async (restaurantId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from('meals')
+            .select('*')
+            .eq('restaurant_id', restaurantId)
+            .eq('available', true)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+
+          // Transform Supabase data to match our Meal interface
+          const transformedMeals: Meal[] = (data || []).map(meal => ({
+            id: meal.id,
+            name: meal.name,
+            description: meal.description || '',
+            image: meal.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+            calories: meal.calories || 0,
+            protein: meal.protein || 0,
+            carbs: meal.carbs || 0,
+            fat: meal.fat || 0,
+            restaurant: meal.restaurant_name || 'Unknown Restaurant',
+            restaurantLogo: meal.restaurant_logo_url || 'https://images.unsplash.com/photo-1581349485608-9469926a8e5e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80',
+            category: meal.category || [],
+            ingredients: meal.ingredients || [],
+            price: Number(meal.price) || 0,
+          }));
+
+          return transformedMeals;
+        } catch (error: any) {
+          console.error('Error fetching meals by restaurant:', error);
+          throw new Error(error.message || 'Failed to fetch restaurant meals');
         }
       },
 

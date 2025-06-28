@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
-import { Meal } from '@/mocks/meals';
+import { Meal } from '@/store/mealsStore';
 
 interface MealCardProps {
   meal: Meal;
@@ -19,7 +19,10 @@ export const MealCard = ({ meal, compact = false }: MealCardProps) => {
   if (compact) {
     return (
       <Pressable
-        style={styles.compactContainer}
+        style={({ pressed }) => [
+          styles.compactContainer,
+          pressed && styles.pressed
+        ]}
         onPress={handlePress}
       >
         <Image source={{ uri: meal.image }} style={styles.compactImage} />
@@ -33,7 +36,10 @@ export const MealCard = ({ meal, compact = false }: MealCardProps) => {
 
   return (
     <Pressable
-      style={styles.container}
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.pressed
+      ]}
       onPress={handlePress}
     >
       <Image source={{ uri: meal.image }} style={styles.image} />
@@ -73,6 +79,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: theme.spacing.md,
     ...theme.shadows.md,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   image: {
     width: '100%',
