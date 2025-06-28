@@ -74,7 +74,7 @@ export default function HomeScreen() {
 
       <View style={styles.featuredSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Featured Meals</Text>
+          <Text style={styles.sectionTitle}>Featured Restaurants</Text>
         </View>
 
         <ScrollView
