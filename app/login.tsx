@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Image, Pressable, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
@@ -13,15 +13,26 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
+    // Validation
+    if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
     try {
-      await login(email, password);
-      router.replace('/');
+      await login(email.trim(), password);
+      router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid email or password');
     }
@@ -36,6 +47,7 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>NUTRIO</Text>
@@ -55,6 +67,9 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              editable={!isLoading}
             />
           </View>
 
@@ -67,10 +82,14 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                autoComplete="password"
+                textContentType="password"
+                editable={!isLoading}
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIcon}
+                disabled={isLoading}
               >
                 {showPassword ? (
                   <EyeOff size={20} color={theme.colors.textLight} />
@@ -81,7 +100,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <Pressable style={styles.forgotPassword}>
+          <Pressable style={styles.forgotPassword} disabled={isLoading}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </Pressable>
 
@@ -90,6 +109,7 @@ export default function LoginScreen() {
             onPress={handleLogin}
             style={styles.loginButton}
             isLoading={isLoading}
+            disabled={isLoading}
           />
 
           <View style={styles.divider}>
@@ -99,10 +119,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialButtons}>
-            <Pressable style={styles.socialButton}>
+            <Pressable style={[styles.socialButton, isLoading && styles.disabledButton]} disabled={isLoading}>
               <Text style={styles.socialButtonText}>Google</Text>
             </Pressable>
-            <Pressable style={styles.socialButton}>
+            <Pressable style={[styles.socialButton, isLoading && styles.disabledButton]} disabled={isLoading}>
               <Text style={styles.socialButtonText}>Apple</Text>
             </Pressable>
           </View>
@@ -110,8 +130,8 @@ export default function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account?</Text>
-          <Pressable onPress={() => router.push('/signup')}>
-            <Text style={styles.signupText}>Sign Up</Text>
+          <Pressable onPress={() => router.push('/signup')} disabled={isLoading}>
+            <Text style={[styles.signupText, isLoading && styles.disabledText]}>Sign Up</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -251,5 +271,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.md,
     fontWeight: theme.typography.fontWeights.medium,
     color: theme.colors.primary,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  disabledText: {
+    opacity: 0.6,
   },
 });

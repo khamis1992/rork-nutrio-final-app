@@ -15,9 +15,20 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSignup = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    // Validation
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -32,10 +43,10 @@ export default function SignupScreen() {
     }
 
     try {
-      await signup(email, password, name);
+      await signup(email.trim(), password, name.trim());
       Alert.alert(
         'Account Created',
-        'Please check your email to verify your account',
+        'Please check your email to verify your account before logging in.',
         [
           {
             text: 'OK',
@@ -57,6 +68,7 @@ export default function SignupScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>NUTRIO</Text>
@@ -74,6 +86,9 @@ export default function SignupScreen() {
               placeholder="Enter your full name"
               value={name}
               onChangeText={setName}
+              autoComplete="name"
+              textContentType="name"
+              editable={!isLoading}
             />
           </View>
 
@@ -86,6 +101,9 @@ export default function SignupScreen() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              editable={!isLoading}
             />
           </View>
 
@@ -94,14 +112,18 @@ export default function SignupScreen() {
             <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
-                placeholder="Create a password"
+                placeholder="Create a password (min 6 characters)"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                autoComplete="password-new"
+                textContentType="newPassword"
+                editable={!isLoading}
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIcon}
+                disabled={isLoading}
               >
                 {showPassword ? (
                   <EyeOff size={20} color={theme.colors.textLight} />
@@ -120,6 +142,9 @@ export default function SignupScreen() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showPassword}
+              autoComplete="password-new"
+              textContentType="newPassword"
+              editable={!isLoading}
             />
           </View>
 
@@ -136,6 +161,7 @@ export default function SignupScreen() {
             onPress={handleSignup}
             style={styles.signupButton}
             isLoading={isLoading}
+            disabled={isLoading}
           />
 
           <View style={styles.divider}>
@@ -145,10 +171,10 @@ export default function SignupScreen() {
           </View>
 
           <View style={styles.socialButtons}>
-            <Pressable style={styles.socialButton}>
+            <Pressable style={[styles.socialButton, isLoading && styles.disabledButton]} disabled={isLoading}>
               <Text style={styles.socialButtonText}>Google</Text>
             </Pressable>
-            <Pressable style={styles.socialButton}>
+            <Pressable style={[styles.socialButton, isLoading && styles.disabledButton]} disabled={isLoading}>
               <Text style={styles.socialButtonText}>Apple</Text>
             </Pressable>
           </View>
@@ -156,8 +182,8 @@ export default function SignupScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account?</Text>
-          <Pressable onPress={() => router.push('/login')}>
-            <Text style={styles.loginText}>Log In</Text>
+          <Pressable onPress={() => router.push('/login')} disabled={isLoading}>
+            <Text style={[styles.loginText, isLoading && styles.disabledText]}>Log In</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -300,5 +326,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSizes.md,
     fontWeight: theme.typography.fontWeights.medium,
     color: theme.colors.primary,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  disabledText: {
+    opacity: 0.6,
   },
 });

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/lib/trpc";
+import { useUserStore } from "@/store/userStore";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -49,6 +50,12 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
+  const { initializeUser } = useUserStore();
+
+  useEffect(() => {
+    initializeUser();
+  }, []);
+
   return (
     <>
       <StatusBar style="dark" />

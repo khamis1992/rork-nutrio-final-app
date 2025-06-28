@@ -44,14 +44,14 @@ interface UserState {
 }
 
 // Helper function to get date 7 days ago
-const get7DaysAgo = () => {
+const get7DaysAgo = (): string => {
   const date = new Date();
   date.setDate(date.getDate() - 6); // Include today, so -6 gives us 7 days total
   return date.toISOString().split('T')[0];
 };
 
 // Helper function to get today's date
-const getToday = () => {
+const getToday = (): string => {
   return new Date().toISOString().split('T')[0];
 };
 
