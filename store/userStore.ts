@@ -215,7 +215,7 @@ export const useUserStore = create<UserState>()(
 
       logNutrition: async (nutrition) => {
         const { supabaseUser } = get();
-        if (!supabaseUser) return;
+        if (!supabaseUser) throw new Error('User not authenticated');
 
         try {
           const today = new Date().toISOString().split('T')[0];
@@ -229,7 +229,7 @@ export const useUserStore = create<UserState>()(
             .single();
 
           if (existingLog) {
-            // Update existing log
+            // Update existing log by adding the new nutrition values
             const { error } = await supabase
               .from('nutrition_logs')
               .update({
@@ -257,10 +257,11 @@ export const useUserStore = create<UserState>()(
             if (error) throw error;
           }
 
+          // Refresh nutrition progress to show updated data
           await get().fetchNutritionProgress();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Log nutrition error:', error);
-          throw error;
+          throw new Error(error.message || 'Failed to log nutrition');
         }
       },
     }),
@@ -277,7 +278,7 @@ export const useUserStore = create<UserState>()(
 
 // Initialize auth state
 supabase.auth.onAuthStateChange((event, session) => {
-  const { supabaseUser, fetchUserProfile, fetchNutritionProgress } = useUserStore.getState();
+  const { fetchUserProfile, fetchNutritionProgress } = useUserStore.getState();
   
   if (event === 'SIGNED_IN' && session?.user) {
     useUserStore.setState({ 

@@ -7,6 +7,7 @@ import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { useUserStore } from '@/store/userStore';
 import { Button } from '@/components/Button';
 import { NutritionSummary } from '@/components/NutritionSummary';
+import { Check } from 'lucide-react-native';
 
 export default function MealDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +16,7 @@ export default function MealDetailScreen() {
   const { subscription } = useSubscriptionStore();
   const { isAuthenticated } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
 
   const meal = getMealById(id);
 
@@ -143,13 +145,24 @@ export default function MealDetailScreen() {
     
     try {
       await logMealAsEaten(meal.id);
+      setIsLogged(true);
+      
       Alert.alert(
-        "Meal Logged",
-        "This meal has been added to your nutrition log",
-        [{ text: "OK" }]
+        "Meal Logged Successfully! 🎉",
+        `Added to your nutrition log:\n• ${meal.calories} calories\n• ${meal.protein}g protein\n• ${meal.carbs}g carbs\n• ${meal.fat}g fat`,
+        [
+          {
+            text: "View Progress",
+            onPress: () => router.push('/(tabs)/progress')
+          },
+          {
+            text: "OK",
+            style: "cancel"
+          }
+        ]
       );
-    } catch (error) {
-      Alert.alert("Error", "Failed to log meal");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to log meal");
     } finally {
       setIsLoading(false);
     }
@@ -213,13 +226,23 @@ export default function MealDetailScreen() {
             style={styles.addButton}
           />
           <Button
-            title="Log as Eaten"
+            title={isLogged ? "Logged ✓" : "Log as Eaten"}
             onPress={handleLogAsEaten}
-            variant="outline"
-            style={styles.logButton}
+            variant={isLogged ? "secondary" : "outline"}
+            style={[styles.logButton, isLogged && styles.loggedButton]}
             isLoading={isLoading}
+            disabled={isLogged}
           />
         </View>
+
+        {isLogged && (
+          <View style={styles.successMessage}>
+            <Check size={16} color={theme.colors.success} />
+            <Text style={styles.successText}>
+              Meal logged to your nutrition tracker!
+            </Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -328,7 +351,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
   },
   addButton: {
     flex: 1,
@@ -337,6 +360,26 @@ const styles = StyleSheet.create({
   logButton: {
     flex: 1,
     marginLeft: theme.spacing.sm,
+  },
+  loggedButton: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
+  successMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryLight,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.xl,
+  },
+  successText: {
+    fontSize: theme.typography.fontSizes.sm,
+    color: theme.colors.success,
+    fontWeight: theme.typography.fontWeights.medium,
+    marginLeft: theme.spacing.xs,
   },
   notFoundContainer: {
     flex: 1,

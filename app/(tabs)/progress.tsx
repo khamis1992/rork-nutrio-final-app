@@ -1,12 +1,31 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, RefreshControl } from 'react-native';
 import { theme } from '@/constants/theme';
 import { useUserStore } from '@/store/userStore';
 import { NutritionSummary } from '@/components/NutritionSummary';
 import { ProgressChart } from '@/components/ProgressChart';
 
 export default function ProgressScreen() {
-  const { user } = useUserStore();
+  const { user, fetchNutritionProgress, isLoading } = useUserStore();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchNutritionProgress();
+    } catch (error) {
+      console.error('Error refreshing progress:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchNutritionProgress]);
+
+  useEffect(() => {
+    // Fetch latest progress when screen loads
+    if (user) {
+      fetchNutritionProgress();
+    }
+  }, [user, fetchNutritionProgress]);
 
   if (!user) {
     return (
@@ -20,30 +39,38 @@ export default function ProgressScreen() {
   }
 
   // Get today's progress
-  const todayProgress = user.progress[user.progress.length - 1];
+  const today = new Date().toISOString().split('T')[0];
+  const todayProgress = user.progress.find(p => p.date === today) || {
+    date: today,
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  };
 
-  // Calculate weekly averages
+  // Calculate weekly averages (last 7 days)
+  const last7Days = user.progress.slice(-7);
   const weeklyAverages = {
-    calories: Math.round(
-      user.progress.reduce((sum, day) => sum + day.calories, 0) / user.progress.length
-    ),
-    protein: Math.round(
-      user.progress.reduce((sum, day) => sum + day.protein, 0) / user.progress.length
-    ),
-    carbs: Math.round(
-      user.progress.reduce((sum, day) => sum + day.carbs, 0) / user.progress.length
-    ),
-    fat: Math.round(
-      user.progress.reduce((sum, day) => sum + day.fat, 0) / user.progress.length
-    ),
+    calories: last7Days.length > 0 ? Math.round(
+      last7Days.reduce((sum, day) => sum + day.calories, 0) / last7Days.length
+    ) : 0,
+    protein: last7Days.length > 0 ? Math.round(
+      last7Days.reduce((sum, day) => sum + day.protein, 0) / last7Days.length
+    ) : 0,
+    carbs: last7Days.length > 0 ? Math.round(
+      last7Days.reduce((sum, day) => sum + day.carbs, 0) / last7Days.length
+    ) : 0,
+    fat: last7Days.length > 0 ? Math.round(
+      last7Days.reduce((sum, day) => sum + day.fat, 0) / last7Days.length
+    ) : 0,
   };
 
   // Calculate goal completion percentages
   const goalCompletion = {
-    calories: Math.round((weeklyAverages.calories / user.dailyGoals.calories) * 100),
-    protein: Math.round((weeklyAverages.protein / user.dailyGoals.protein) * 100),
-    carbs: Math.round((weeklyAverages.carbs / user.dailyGoals.carbs) * 100),
-    fat: Math.round((weeklyAverages.fat / user.dailyGoals.fat) * 100),
+    calories: user.dailyGoals.calories > 0 ? Math.round((weeklyAverages.calories / user.dailyGoals.calories) * 100) : 0,
+    protein: user.dailyGoals.protein > 0 ? Math.round((weeklyAverages.protein / user.dailyGoals.protein) * 100) : 0,
+    carbs: user.dailyGoals.carbs > 0 ? Math.round((weeklyAverages.carbs / user.dailyGoals.carbs) * 100) : 0,
+    fat: user.dailyGoals.fat > 0 ? Math.round((weeklyAverages.fat / user.dailyGoals.fat) * 100) : 0,
   };
 
   return (
@@ -51,16 +78,21 @@ export default function ProgressScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <Text style={styles.title}>Nutrition Progress</Text>
 
-      <ProgressChart 
-        data={user.progress.map(day => ({ 
-          date: day.date, 
-          calories: day.calories 
-        }))} 
-        goal={user.dailyGoals.calories}
-      />
+      {user.progress.length > 0 && (
+        <ProgressChart 
+          data={user.progress.slice(-7).map(day => ({ 
+            date: day.date, 
+            calories: day.calories 
+          }))} 
+          goal={user.dailyGoals.calories}
+        />
+      )}
 
       <View style={styles.summaryContainer}>
         <Text style={styles.sectionTitle}>Today's Nutrition</Text>
@@ -76,66 +108,77 @@ export default function ProgressScreen() {
         />
       </View>
 
-      <View style={styles.statsContainer}>
-        <Text style={styles.sectionTitle}>Weekly Stats</Text>
-        
-        <View style={styles.statsCard}>
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Avg. Calories</Text>
-              <Text style={styles.statValue}>{weeklyAverages.calories}</Text>
-              <Text style={[
-                styles.statPercentage,
-                goalCompletion.calories >= 90 ? styles.goodStat : 
-                goalCompletion.calories >= 70 ? styles.okStat : styles.badStat
-              ]}>
-                {goalCompletion.calories}% of goal
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Avg. Protein</Text>
-              <Text style={styles.statValue}>{weeklyAverages.protein}g</Text>
-              <Text style={[
-                styles.statPercentage,
-                goalCompletion.protein >= 90 ? styles.goodStat : 
-                goalCompletion.protein >= 70 ? styles.okStat : styles.badStat
-              ]}>
-                {goalCompletion.protein}% of goal
-              </Text>
-            </View>
-          </View>
+      {last7Days.length > 0 && (
+        <View style={styles.statsContainer}>
+          <Text style={styles.sectionTitle}>Weekly Stats (Last 7 Days)</Text>
           
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Avg. Carbs</Text>
-              <Text style={styles.statValue}>{weeklyAverages.carbs}g</Text>
-              <Text style={[
-                styles.statPercentage,
-                goalCompletion.carbs >= 90 ? styles.goodStat : 
-                goalCompletion.carbs >= 70 ? styles.okStat : styles.badStat
-              ]}>
-                {goalCompletion.carbs}% of goal
-              </Text>
+          <View style={styles.statsCard}>
+            <View style={styles.statRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg. Calories</Text>
+                <Text style={styles.statValue}>{weeklyAverages.calories}</Text>
+                <Text style={[
+                  styles.statPercentage,
+                  goalCompletion.calories >= 90 ? styles.goodStat : 
+                  goalCompletion.calories >= 70 ? styles.okStat : styles.badStat
+                ]}>
+                  {goalCompletion.calories}% of goal
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg. Protein</Text>
+                <Text style={styles.statValue}>{weeklyAverages.protein}g</Text>
+                <Text style={[
+                  styles.statPercentage,
+                  goalCompletion.protein >= 90 ? styles.goodStat : 
+                  goalCompletion.protein >= 70 ? styles.okStat : styles.badStat
+                ]}>
+                  {goalCompletion.protein}% of goal
+                </Text>
+              </View>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Avg. Fat</Text>
-              <Text style={styles.statValue}>{weeklyAverages.fat}g</Text>
-              <Text style={[
-                styles.statPercentage,
-                goalCompletion.fat >= 90 ? styles.goodStat : 
-                goalCompletion.fat >= 70 ? styles.okStat : styles.badStat
-              ]}>
-                {goalCompletion.fat}% of goal
-              </Text>
+            
+            <View style={styles.statRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg. Carbs</Text>
+                <Text style={styles.statValue}>{weeklyAverages.carbs}g</Text>
+                <Text style={[
+                  styles.statPercentage,
+                  goalCompletion.carbs >= 90 ? styles.goodStat : 
+                  goalCompletion.carbs >= 70 ? styles.okStat : styles.badStat
+                ]}>
+                  {goalCompletion.carbs}% of goal
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg. Fat</Text>
+                <Text style={styles.statValue}>{weeklyAverages.fat}g</Text>
+                <Text style={[
+                  styles.statPercentage,
+                  goalCompletion.fat >= 90 ? styles.goodStat : 
+                  goalCompletion.fat >= 70 ? styles.okStat : styles.badStat
+                ]}>
+                  {goalCompletion.fat}% of goal
+                </Text>
+              </View>
             </View>
-          </View>
-          
-          <View style={styles.streakContainer}>
-            <Text style={styles.streakLabel}>Current Streak</Text>
-            <Text style={styles.streakValue}>{user.progress.length} days</Text>
+            
+            <View style={styles.streakContainer}>
+              <Text style={styles.streakLabel}>Tracking Streak</Text>
+              <Text style={styles.streakValue}>{user.progress.length} days</Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
+
+      {user.progress.length === 0 && (
+        <View style={styles.emptyProgressContainer}>
+          <Text style={styles.emptyProgressText}>No nutrition data yet</Text>
+          <Text style={styles.emptyProgressSubtext}>
+            Start logging meals to see your progress here
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -233,6 +276,22 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   emptySubtext: {
+    fontSize: theme.typography.fontSizes.md,
+    color: theme.colors.textLight,
+    textAlign: 'center',
+  },
+  emptyProgressContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xxl,
+  },
+  emptyProgressText: {
+    fontSize: theme.typography.fontSizes.lg,
+    fontWeight: theme.typography.fontWeights.semibold,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  emptyProgressSubtext: {
     fontSize: theme.typography.fontSizes.md,
     color: theme.colors.textLight,
     textAlign: 'center',
