@@ -40,6 +40,16 @@ export default function HomeScreen() {
     router.push(`/meal/${randomMeal.id}`);
   };
 
+  const handleRestaurantPress = (id: string) => {
+    console.log(`Restaurant ${id} pressed`);
+    // In a real app, this would navigate to restaurant details
+  };
+
+  const handleToggleFavorite = (id: string) => {
+    console.log(`Toggle favorite for restaurant ${id}`);
+    // In a real app, this would update favorite status
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -95,8 +105,9 @@ export default function HomeScreen() {
       </View>
 
       <RestaurantCarousel
-        title="Our Partners"
-        onPressItem={(id) => console.log(`Restaurant ${id} pressed`)}
+        title="Partnered Restaurants"
+        onPressItem={handleRestaurantPress}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       <View style={styles.gymAccessSection}>

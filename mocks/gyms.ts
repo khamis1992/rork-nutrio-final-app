@@ -55,7 +55,7 @@ export const gyms: Gym[] = [
     name: 'Cardio Club',
     image: 'https://images.unsplash.com/photo-1570829460005-c840387bb1ca?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
     logo: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80',
-    address: "202 Runner Way, New York, NY",
+    address: '202 Runner Way, New York, NY',
     distance: '0.5 miles',
     rating: 4.5,
     amenities: ['Treadmills', 'Ellipticals', 'Rowing Machines', 'Cycling Studio'],
